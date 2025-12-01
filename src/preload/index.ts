@@ -1,6 +1,9 @@
 import { contextBridge } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
+// Import ai-trend-publish preload bridge (this ensures it's loaded and executes)
+import './ai-trend-publish'
+
 // Custom APIs for renderer
 const api = {}
 

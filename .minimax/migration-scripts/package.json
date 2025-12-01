@@ -1,0 +1,10 @@
+{
+  "name": "migration-scripts",
+  "version": "1.0.0",
+  "description": "Migration utilities for ai-trend-publish",
+  "type": "module",
+  "dependencies": {
+    "mysql2": "^3.13.0",
+    "dotenv": "^16.4.5"
+  }
+}

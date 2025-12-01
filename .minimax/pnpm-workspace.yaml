@@ -1,0 +1,4 @@
+packages:
+  - 'ai-trend-publish-service'
+  - 'electron-integration'
+  - 'migration-scripts'

@@ -1,0 +1,21 @@
+{
+  "name": "ai-trend-publish-monorepo",
+  "version": "1.0.0",
+  "description": "Monorepo for ai-trend-publish Node.js migration",
+  "private": true,
+  "workspaces": [
+    "ai-trend-publish-service",
+    "electron-integration"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter ai-trend-publish-service dev",
+    "build": "pnpm -r build",
+    "test": "pnpm --filter ai-trend-publish-service test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.6",
+    "typescript": "^5.9.2"
+  }
+}
