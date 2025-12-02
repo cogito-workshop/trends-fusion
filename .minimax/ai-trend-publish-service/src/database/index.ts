@@ -3,7 +3,7 @@
 // ============================================================================
 
 // Enums and types
-export { DatabaseType } from './factory.js'
+export { DatabaseType } from './factory.js';
 
 // Interfaces and DTOs
 export type {
@@ -25,13 +25,13 @@ export type {
   UpdateTemplateCategoryDto,
   UpdateTemplateDto,
   UpdateDataSourceDto,
-} from './interfaces/dto.js'
+} from './interfaces/dto.js';
 
 // Services
-export { SQLiteService } from './sqlite/sqlite.service.js'
-export { SupabaseService } from './supabase/supabase.service.js'
+export { SQLiteService } from './sqlite/sqlite.service.js';
+export { SupabaseService } from './supabase/supabase.service.js';
 
 // Factory and manager
-export { DatabaseFactory, DatabaseManager } from './factory.js'
-export { databaseManager } from './factory.js'
-export { getDatabase } from './factory.js'
+export { DatabaseFactory, DatabaseManager } from './factory.js';
+export { databaseManager } from './factory.js';
+export { getDatabase } from './factory.js';

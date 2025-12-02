@@ -1,19 +1,24 @@
 import { useEffect, useState } from 'react'
-import type { TemplateDto } from '../../../preload/ai-trend-publish'
+import type { TemplateDto } from '../../../../preload/ai-trend-publish'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
+import { Button } from '../ui/button'
+import { Input } from '../ui/input'
+import { Label } from '../ui/label'
+import { Textarea } from '../ui/textarea'
+import { Plus, Pencil, Trash2, X } from 'lucide-react'
 
-export default function Templates(): JSX.Element {
+export default function Templates() {
   const [templates, setTemplates] = useState<TemplateDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<TemplateDto | null>(null)
 
-  // Form state
   const [formData, setFormData] = useState({
     name: '',
     platform: 'weixin',
     style: 'default',
-    content: '',
+    content: ''
   })
 
   useEffect(() => {
@@ -24,7 +29,6 @@ export default function Templates(): JSX.Element {
     try {
       setLoading(true)
 
-      // Check if aiTrendPublish API is available
       if (!window.aiTrendPublish) {
         throw new Error('AI Trend Publish API not available. Ensure the service is initialized.')
       }
@@ -82,7 +86,7 @@ export default function Templates(): JSX.Element {
       name: template.name,
       platform: template.platform,
       style: template.style,
-      content: template.content,
+      content: template.content
     })
     setShowCreateForm(true)
   }
@@ -95,129 +99,160 @@ export default function Templates(): JSX.Element {
 
   if (loading) {
     return (
-      <div className="templates">
-        <h1>Templates</h1>
-        <div className="loading">Loading templates...</div>
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground mt-2">Loading templates...</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="templates">
-      <h1>Templates</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Templates</h2>
+          <p className="text-muted-foreground">Manage content templates for different platforms</p>
+        </div>
+        {!showCreateForm && (
+          <Button onClick={() => setShowCreateForm(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Template
+          </Button>
+        )}
+      </div>
 
       {error && (
-        <div className="error">
-          Error: {error}
-          <button onClick={loadTemplates}>Retry</button>
-        </div>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-destructive">{error}</p>
+          </CardContent>
+        </Card>
       )}
 
-      <div className="actions">
-        {!showCreateForm && (
-          <button onClick={() => setShowCreateForm(true)}>
-            Create New Template
-          </button>
-        )}
-      </div>
-
-      {/* Create/Edit Form */}
       {showCreateForm && (
-        <div className="card">
-          <h2>{editingTemplate ? 'Edit Template' : 'Create Template'}</h2>
-          <form onSubmit={editingTemplate ? handleUpdate : handleCreate}>
-            <div className="form-group">
-              <label>Name</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={e => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-            </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>{editingTemplate ? 'Edit Template' : 'Create Template'}</CardTitle>
+            <CardDescription>
+              {editingTemplate ? 'Update template details' : 'Add a new content template'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={editingTemplate ? handleUpdate : handleCreate} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+              </div>
 
-            <div className="form-group">
-              <label>Platform</label>
-              <select
-                value={formData.platform}
-                onChange={e => setFormData({ ...formData, platform: e.target.value })}
-              >
-                <option value="weixin">WeChat</option>
-                <option value="twitter">Twitter</option>
-                <option value="blog">Blog</option>
-              </select>
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="platform">Platform</Label>
+                <select
+                  id="platform"
+                  value={formData.platform}
+                  onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  required
+                >
+                  <option value="weixin">WeChat</option>
+                  <option value="twitter">Twitter</option>
+                  <option value="blog">Blog</option>
+                </select>
+              </div>
 
-            <div className="form-group">
-              <label>Style</label>
-              <input
-                type="text"
-                value={formData.style}
-                onChange={e => setFormData({ ...formData, style: e.target.value })}
-                required
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="style">Style</Label>
+                <Input
+                  id="style"
+                  value={formData.style}
+                  onChange={(e) => setFormData({ ...formData, style: e.target.value })}
+                  required
+                />
+              </div>
 
-            <div className="form-group">
-              <label>Content</label>
-              <textarea
-                value={formData.content}
-                onChange={e => setFormData({ ...formData, content: e.target.value })}
-                rows={10}
-                required
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="content">Content</Label>
+                <Textarea
+                  id="content"
+                  value={formData.content}
+                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                  rows={10}
+                  required
+                />
+              </div>
 
-            <div className="form-actions">
-              <button type="submit">
-                {editingTemplate ? 'Update' : 'Create'}
-              </button>
-              <button type="button" onClick={cancelEdit}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
+              <div className="flex items-center gap-2">
+                <Button type="submit">{editingTemplate ? 'Update' : 'Create'}</Button>
+                <Button type="button" variant="outline" onClick={cancelEdit}>
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Templates List */}
-      <div className="card">
-        <h2>Templates ({templates.length})</h2>
+      <div className="grid gap-4">
         {templates.length === 0 ? (
-          <p>No templates created yet</p>
+          <Card>
+            <CardContent className="flex items-center justify-center py-12">
+              <p className="text-muted-foreground">No templates yet. Create your first template!</p>
+            </CardContent>
+          </Card>
         ) : (
-          <div className="templates-list">
-            {templates.map(template => (
-              <div key={template.id} className="template-item">
-                <div className="template-header">
-                  <strong>{template.name}</strong>
-                  <div className="template-actions">
-                    <button onClick={() => startEdit(template)}>Edit</button>
-                    <button onClick={() => handleDelete(template.id!)} className="danger">
-                      Delete
-                    </button>
+          templates.map((template) => (
+            <Card key={template.id}>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle>{template.name}</CardTitle>
+                    <CardDescription className="mt-1">
+                      <span className="capitalize">{template.platform}</span> • {template.style}
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => startEdit(template)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(template.id!)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-                <div className="template-details">
-                  <div>Platform: {template.platform}</div>
-                  <div>Style: {template.style}</div>
-                  <div>Version: {template.version || 1}</div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Content:</p>
+                  <pre className="text-sm bg-muted p-3 rounded-md overflow-x-auto">
+                    {template.content}
+                  </pre>
                   {template.createdAt && (
-                    <div>Created: {new Date(template.createdAt).toLocaleString()}</div>
+                    <p className="text-xs text-muted-foreground">
+                      Created: {new Date(template.createdAt).toLocaleString()}
+                    </p>
                   )}
                 </div>
-                <div className="template-content">
-                  <pre>{template.content}</pre>
-                </div>
-              </div>
-            ))}
-          </div>
+              </CardContent>
+            </Card>
+          ))
         )}
       </div>
 
-      <button onClick={loadTemplates} className="refresh-btn">
+      <Button onClick={loadTemplates} variant="outline" className="w-full">
         Refresh
-      </button>
+      </Button>
     </div>
   )
 }

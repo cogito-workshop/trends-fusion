@@ -1,1 +1,1 @@
-export { VectorService, vectorService } from './vector.service.js'
+export { VectorService, vectorService } from './vector.service.js';

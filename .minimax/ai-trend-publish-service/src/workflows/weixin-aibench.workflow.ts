@@ -1,32 +1,32 @@
-import { Workflow, WorkflowContext, WorkflowResult } from './interfaces.js'
-import { providerManager } from '../providers/manager.js'
-import { logger } from '../utils/logger.js'
+import { Workflow, WorkflowContext, WorkflowResult } from './interfaces.js';
+import { providerManager } from '../providers/manager.js';
+import { logger } from '../utils/logger.js';
 
 export class WeixinAIBenchWorkflow implements Workflow {
-  type = 'weixin-aibench' as const
-  name = 'WeChat AI Benchmark Workflow'
-  description: 'Generates AI benchmark and evaluation content for WeChat'
+  type = 'weixin-aibench' as const;
+  name = 'WeChat AI Benchmark Workflow';
+  description: 'Generates AI benchmark and evaluation content for WeChat';
 
   async execute(context: WorkflowContext): Promise<WorkflowResult> {
-    const startTime = Date.now()
+    const startTime = Date.now();
     logger.info({
       msg: 'Starting WeChat AI benchmark workflow',
       workflowId: context.workflowId,
-    })
+    });
 
     try {
       if (!context.data?.sources || context.data.sources.length === 0) {
-        throw new Error('No data sources provided')
+        throw new Error('No data sources provided');
       }
 
-      const allItems = context.data.sources.flatMap(source => source.items)
+      const allItems = context.data.sources.flatMap((source) => source.items);
       logger.info({
         msg: 'Processing AI benchmark items',
         count: allItems.length,
-      })
+      });
 
-      const content = await this.generateBenchmarkContent(allItems)
-      const generationTime = Date.now() - startTime
+      const content = await this.generateBenchmarkContent(allItems);
+      const generationTime = Date.now() - startTime;
 
       const result: WorkflowResult = {
         success: true,
@@ -37,27 +37,27 @@ export class WeixinAIBenchWorkflow implements Workflow {
           contentLength: content.length,
           generationTime,
         },
-      }
+      };
 
       logger.info({
         msg: 'WeChat AI benchmark workflow completed',
         workflowId: context.workflowId,
         contentLength: content.length,
         generationTime,
-      })
+      });
 
-      return result
+      return result;
     } catch (error) {
       logger.error({
         msg: 'WeChat AI benchmark workflow failed',
         workflowId: context.workflowId,
         error: error instanceof Error ? error.message : String(error),
-      })
+      });
 
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
-      }
+      };
     }
   }
 
@@ -79,13 +79,13 @@ Your task:
    - Implications for the industry
    - Conclusion
 
-Write in Chinese with Markdown formatting.`
+Write in Chinese with Markdown formatting.`;
   }
 
   private async generateBenchmarkContent(items: any[]): Promise<string> {
     const dataText = items
       .map((item, index) => `#${index + 1}: ${item.title || item.content.substring(0, 100)}`)
-      .join('\n\n')
+      .join('\n\n');
 
     const response = await providerManager.generateWithFallback({
       messages: [
@@ -100,10 +100,10 @@ Write in Chinese with Markdown formatting.`
       ],
       temperature: 0.7,
       maxTokens: 1500,
-    })
+    });
 
-    return response.content
+    return response.content;
   }
 }
 
-export const weixinAIBenchWorkflow = new WeixinAIBenchWorkflow()
+export const weixinAIBenchWorkflow = new WeixinAIBenchWorkflow();

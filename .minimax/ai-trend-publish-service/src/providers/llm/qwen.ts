@@ -1,36 +1,36 @@
-import { BaseLLMProvider, LLMRequest, LLMResponse } from '../interfaces/llm.js'
-import { logger } from '../../utils/logger.js'
+import { BaseLLMProvider, LLMRequest, LLMResponse } from '../interfaces/llm.js';
+import { logger } from '../../utils/logger.js';
 
 export class QwenProvider extends BaseLLMProvider {
-  name = 'qwen'
-  private defaultModel = 'qwen-turbo'
+  name = 'qwen';
+  private defaultModel = 'qwen-turbo';
 
   constructor() {
     super({
       apiKey: process.env.QWEN_API_KEY || '',
       baseUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
       defaultModel: 'qwen-turbo',
-    })
+    });
   }
 
   async generate(request: LLMRequest): Promise<LLMResponse> {
     if (!this.validateConfig()) {
-      throw new Error('Qwen API key not configured')
+      throw new Error('Qwen API key not configured');
     }
 
-    const model = this.getModel(request)
+    const model = this.getModel(request);
 
     try {
-      const messages = request.messages.map(msg => ({
+      const messages = request.messages.map((msg) => ({
         role: msg.role,
         content: msg.content,
-      }))
+      }));
 
       const response = await fetch(this.baseUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
           model,
@@ -44,47 +44,49 @@ export class QwenProvider extends BaseLLMProvider {
             incremental_output: false,
           },
         }),
-      })
+      });
 
       if (!response.ok) {
-        const error = await response.text()
+        const error = await response.text();
         logger.error({
           msg: 'Qwen API error',
           status: response.status,
           error,
-        })
-        throw new Error(`Qwen API error: ${response.status} ${error}`)
+        });
+        throw new Error(`Qwen API error: ${response.status} ${error}`);
       }
 
-      const data = await response.json()
+      const data = await response.json();
 
-      const content = data.output?.text || ''
-      const usage = data.usage
+      const content = data.output?.text || '';
+      const usage = data.usage;
 
       logger.info({
         msg: 'Qwen generation successful',
         model,
         promptTokens: usage?.input_tokens,
         completionTokens: usage?.output_tokens,
-      })
+      });
 
       return {
         content,
         model,
-        usage: usage ? {
-          promptTokens: usage.input_tokens,
-          completionTokens: usage.output_tokens,
-          totalTokens: usage.total_tokens,
-        } : undefined,
-      }
+        usage: usage
+          ? {
+              promptTokens: usage.input_tokens,
+              completionTokens: usage.output_tokens,
+              totalTokens: usage.total_tokens,
+            }
+          : undefined,
+      };
     } catch (error) {
       logger.error({
         msg: 'Qwen generation failed',
         error: error instanceof Error ? error.message : String(error),
-      })
-      throw error
+      });
+      throw error;
     }
   }
 }
 
-export const qwenProvider = new QwenProvider()
+export const qwenProvider = new QwenProvider();

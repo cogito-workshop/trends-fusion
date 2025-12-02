@@ -1,70 +1,45 @@
-import { useState } from 'react'
-import Versions from './components/Versions'
-import electronLogo from './assets/electron.svg'
-import Dashboard from './components/ai-trend-publish/Dashboard'
-import Workflows from './components/ai-trend-publish/Workflows'
-import Templates from './components/ai-trend-publish/Templates'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './hooks/useAuth'
+import LoginForm from './components/auth/LoginForm'
+import RegisterForm from './components/auth/RegisterForm'
+import ProtectedRoute from './components/auth/ProtectedRoute'
+import MainLayout from './components/layout/MainLayout'
+import Dashboard from './components/dashboard/Dashboard'
+import CollectionDashboard from './components/collection/CollectionDashboard'
+import SummaryDashboard from './components/summary/SummaryDashboard'
+import PublishDashboard from './components/publish/PublishDashboard'
+import Notifications from './components/notifications/Notifications'
+import Automation from './components/automation/Automation'
+import Settings from './components/settings/Settings'
 
-type Tab = 'dashboard' | 'workflows' | 'templates'
-
-function App(): React.JSX.Element {
-  const [activeTab, setActiveTab] = useState<Tab>('dashboard')
-  const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
-
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard />
-      case 'workflows':
-        return <Workflows />
-      case 'templates':
-        return <Templates />
-      default:
-        return <Dashboard />
-    }
-  }
-
+function App() {
   return (
-    <div className="app">
-      {/* Header */}
-      <header className="header">
-        <img alt="logo" className="logo" src={electronLogo} />
-        <h1>Trends Fusion - AI Trend Publish</h1>
-      </header>
+    <AuthProvider>
+      <Router>
+        <div className='min-h-screen bg-background'>
+          <Routes>
+            {/* Authentication Routes */}
+            <Route path='/auth/login' element={<LoginForm />} />
+            <Route path='/auth/register' element={<RegisterForm />} />
 
-      {/* Navigation Tabs */}
-      <nav className="tabs">
-        <button
-          className={`tab ${activeTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setActiveTab('dashboard')}
-        >
-          Dashboard
-        </button>
-        <button
-          className={`tab ${activeTab === 'workflows' ? 'active' : ''}`}
-          onClick={() => setActiveTab('workflows')}
-        >
-          Workflows
-        </button>
-        <button
-          className={`tab ${activeTab === 'templates' ? 'active' : ''}`}
-          onClick={() => setActiveTab('templates')}
-        >
-          Templates
-        </button>
-      </nav>
+            {/* Protected Application Routes */}
+            <Route path='/' element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+              <Route index element={<Navigate to='/dashboard' replace />} />
+              <Route path='dashboard' element={<Dashboard />} />
+              <Route path='collection' element={<CollectionDashboard />} />
+              <Route path='summary' element={<SummaryDashboard />} />
+              <Route path='publish' element={<PublishDashboard />} />
+              <Route path='notifications' element={<Notifications />} />
+              <Route path='automation' element={<Automation />} />
+              <Route path='settings' element={<Settings />} />
+            </Route>
 
-      {/* Tab Content */}
-      <main className="main-content">{renderTabContent()}</main>
-
-      {/* Footer */}
-      <footer className="footer">
-        <button onClick={ipcHandle} className="ipc-button">
-          Send IPC Test
-        </button>
-        <Versions></Versions>
-      </footer>
-    </div>
+            {/* Catch all route */}
+            <Route path='*' element={<Navigate to='/' replace />} />
+          </Routes>
+        </div>
+      </Router>
+    </AuthProvider>
   )
 }
 

@@ -1,1 +1,1 @@
-export * from './cron.service.js'
+export * from './cron.service.js';

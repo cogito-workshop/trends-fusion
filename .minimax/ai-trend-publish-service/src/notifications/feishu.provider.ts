@@ -1,25 +1,25 @@
-import { BaseNotificationProvider, NotificationPayload } from './interfaces.js'
-import { logger } from '../utils/logger.js'
+import { BaseNotificationProvider, NotificationPayload } from './interfaces.js';
+import { logger } from '../utils/logger.js';
 
 export class FeishuNotificationProvider extends BaseNotificationProvider {
-  name = 'feishu'
+  name = 'feishu';
 
   constructor(config: { webhook: string; enabled?: boolean }) {
     super({
       enabled: config.enabled !== false && !!config.webhook,
-    })
+    });
 
-    this.webhook = config.webhook
+    this.webhook = config.webhook;
   }
 
-  private webhook: string
+  private webhook: string;
 
   async send(payload: NotificationPayload): Promise<void> {
     if (!this.validateConfig()) {
       logger.warn({
         msg: 'Feishu notification skipped - not configured',
-      })
-      return
+      });
+      return;
     }
 
     try {
@@ -46,7 +46,7 @@ export class FeishuNotificationProvider extends BaseNotificationProvider {
             },
           ],
         },
-      }
+      };
 
       const response = await fetch(this.webhook, {
         method: 'POST',
@@ -54,41 +54,41 @@ export class FeishuNotificationProvider extends BaseNotificationProvider {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(message),
-      })
+      });
 
       if (!response.ok) {
-        const error = await response.text()
+        const error = await response.text();
         logger.error({
           msg: 'Feishu notification failed',
           status: response.status,
           error,
-        })
-        throw new Error(`Feishu API error: ${response.status}`)
+        });
+        throw new Error(`Feishu API error: ${response.status}`);
       }
 
       logger.info({
         msg: 'Feishu notification sent',
         level: payload.level,
         title: payload.title,
-      })
+      });
     } catch (error) {
       logger.error({
         msg: 'Failed to send Feishu notification',
         error: error instanceof Error ? error.message : String(error),
-      })
+      });
     }
   }
 
   private getTemplate(level: string): string {
     switch (level) {
       case 'error':
-        return 'red'
+        return 'red';
       case 'warning':
-        return 'orange'
+        return 'orange';
       case 'success':
-        return 'green'
+        return 'green';
       default:
-        return 'blue'
+        return 'blue';
     }
   }
 }
@@ -96,4 +96,4 @@ export class FeishuNotificationProvider extends BaseNotificationProvider {
 export const feishuProvider = new FeishuNotificationProvider({
   webhook: process.env.FEISHU_WEBHOOK || '',
   enabled: !!process.env.FEISHU_WEBHOOK,
-})
+});

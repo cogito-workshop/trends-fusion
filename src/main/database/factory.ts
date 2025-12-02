@@ -11,7 +11,7 @@ import { SupabaseService } from './supabase/supabase.service'
  */
 export enum DatabaseType {
   SQLITE = 'sqlite',
-  SUPABASE = 'supabase',
+  SUPABASE = 'supabase'
 }
 
 /**
@@ -36,7 +36,7 @@ export class DatabaseFactory {
       case DatabaseType.SUPABASE:
         return new SupabaseService({
           url: config?.supabaseUrl || process.env.SUPABASE_URL || '',
-          key: config?.supabaseKey || process.env.SUPABASE_KEY || '',
+          key: config?.supabaseKey || process.env.SUPABASE_KEY || ''
         })
 
       default:
@@ -66,7 +66,9 @@ export class DatabaseManager {
   private static instance: DatabaseManager
   private dbService: DatabaseService | null = null
 
-  private constructor() {}
+  private constructor() {
+    // Private constructor for singleton pattern
+  }
 
   /**
    * Get singleton instance

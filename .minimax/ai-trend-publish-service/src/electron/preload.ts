@@ -3,153 +3,153 @@
 // Exposes safe APIs to the renderer process via contextBridge
 // ============================================================================
 
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron';
 
 // Define types for our API
 export interface Template {
-  id?: number
-  name: string
-  platform: string
-  style: string
-  content: string
-  categoryId?: number
-  version?: number
-  isActive?: boolean
-  createdAt?: Date
-  updatedAt?: Date
+  id?: number;
+  name: string;
+  platform: string;
+  style: string;
+  content: string;
+  categoryId?: number;
+  version?: number;
+  isActive?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface DataSource {
-  id?: number
-  name: string
-  type: string
-  config: Record<string, unknown>
-  isActive?: boolean
-  createdAt?: Date
-  updatedAt?: Date
+  id?: number;
+  name: string;
+  type: string;
+  config: Record<string, unknown>;
+  isActive?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface WorkflowResult {
-  jobId: string
-  workflowId: string
+  jobId: string;
+  workflowId: string;
 }
 
 export interface WorkflowStatus {
-  workflowId: string
-  type: string
-  startTime: Date
-  result?: any
-  data?: any
+  workflowId: string;
+  type: string;
+  startTime: Date;
+  result?: any;
+  data?: any;
 }
 
 export interface QueueStats {
   workflows: {
-    waiting: number
-    active: number
-    completed: number
-    failed: number
-    delayed: number
-  }
+    waiting: number;
+    active: number;
+    completed: number;
+    failed: number;
+    delayed: number;
+  };
   notifications: {
-    waiting: number
-    active: number
-    completed: number
-    failed: number
-    delayed: number
-  }
+    waiting: number;
+    active: number;
+    completed: number;
+    failed: number;
+    delayed: number;
+  };
 }
 
 export interface ScheduledJob {
-  name: string
-  schedule: string
-  workflowType: string
-  sources?: string[]
-  params?: Record<string, unknown>
-  enabled: boolean
-  timezone?: string
+  name: string;
+  schedule: string;
+  workflowType: string;
+  sources?: string[];
+  params?: Record<string, unknown>;
+  enabled: boolean;
+  timezone?: string;
 }
 
 export interface HealthStatus {
-  status: 'healthy' | 'unhealthy' | 'error'
-  timestamp: string
+  status: 'healthy' | 'unhealthy' | 'error';
+  timestamp: string;
   services?: {
-    database?: string
-  }
-  error?: string
+    database?: string;
+  };
+  error?: string;
 }
 
 // API interface
 export interface AITrendPublishAPI {
   // Database operations
   templates: {
-    list: () => Promise<Template[]>
-    create: (template: Omit<Template, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Template>
-    update: (id: number, updates: Partial<Template>) => Promise<Template>
-    delete: (id: number) => Promise<{ success: boolean }>
-  }
+    list: () => Promise<Template[]>;
+    create: (template: Omit<Template, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Template>;
+    update: (id: number, updates: Partial<Template>) => Promise<Template>;
+    delete: (id: number) => Promise<{ success: boolean }>;
+  };
 
   dataSources: {
-    list: () => Promise<DataSource[]>
-    create: (source: Omit<DataSource, 'id' | 'createdAt' | 'updatedAt'>) => Promise<DataSource>
-    update: (id: number, updates: Partial<DataSource>) => Promise<DataSource>
-    delete: (id: number) => Promise<{ success: boolean }>
-  }
+    list: () => Promise<DataSource[]>;
+    create: (source: Omit<DataSource, 'id' | 'createdAt' | 'updatedAt'>) => Promise<DataSource>;
+    update: (id: number, updates: Partial<DataSource>) => Promise<DataSource>;
+    delete: (id: number) => Promise<{ success: boolean }>;
+  };
 
   config: {
-    get: (key: string) => Promise<string | null>
-    set: (key: string, value: string, description?: string) => Promise<{ success: boolean }>
-  }
+    get: (key: string) => Promise<string | null>;
+    set: (key: string, value: string, description?: string) => Promise<{ success: boolean }>;
+  };
 
   vector: {
     index: (item: {
-      content: string
-      metadata?: Record<string, unknown>
-      embedding?: number[]
-      source?: string
-      sourceId?: string
-    }) => Promise<number>
-    search: (query: number[], limit?: number, source?: string) => Promise<any[]>
-  }
+      content: string;
+      metadata?: Record<string, unknown>;
+      embedding?: number[];
+      source?: string;
+      sourceId?: string;
+    }) => Promise<number>;
+    search: (query: number[], limit?: number, source?: string) => Promise<any[]>;
+  };
 
   // Workflow operations
   workflows: {
-    list: () => Promise<string[]>
+    list: () => Promise<string[]>;
     execute: (
       type: string,
       options: { sources?: string[]; params?: Record<string, unknown> }
-    ) => Promise<WorkflowResult>
-    status: (jobId: string) => Promise<WorkflowStatus | undefined>
-  }
+    ) => Promise<WorkflowResult>;
+    status: (jobId: string) => Promise<WorkflowStatus | undefined>;
+  };
 
   // Queue operations
   queue: {
-    stats: () => Promise<QueueStats>
+    stats: () => Promise<QueueStats>;
     addJob: (job: {
-      workflowType: string
-      sources?: string[]
-      params?: Record<string, unknown>
-      options?: any
-    }) => Promise<string>
-    getJobStatus: (jobId: string) => Promise<any>
-    pause: () => Promise<{ success: boolean }>
-    resume: () => Promise<{ success: boolean }>
-  }
+      workflowType: string;
+      sources?: string[];
+      params?: Record<string, unknown>;
+      options?: any;
+    }) => Promise<string>;
+    getJobStatus: (jobId: string) => Promise<any>;
+    pause: () => Promise<{ success: boolean }>;
+    resume: () => Promise<{ success: boolean }>;
+  };
 
   // Scheduler operations
   scheduler: {
-    list: () => Promise<ScheduledJob[]>
-    add: (job: ScheduledJob) => Promise<{ success: boolean }>
-    update: (name: string, updates: Partial<ScheduledJob>) => Promise<{ success: boolean }>
-    remove: (name: string) => Promise<{ success: boolean }>
-    execute: (name: string) => Promise<{ success: boolean }>
-    start: () => Promise<{ success: boolean }>
-    stop: () => Promise<{ success: boolean }>
-  }
+    list: () => Promise<ScheduledJob[]>;
+    add: (job: ScheduledJob) => Promise<{ success: boolean }>;
+    update: (name: string, updates: Partial<ScheduledJob>) => Promise<{ success: boolean }>;
+    remove: (name: string) => Promise<{ success: boolean }>;
+    execute: (name: string) => Promise<{ success: boolean }>;
+    start: () => Promise<{ success: boolean }>;
+    stop: () => Promise<{ success: boolean }>;
+  };
 
   // Health check
   health: {
-    check: () => Promise<HealthStatus>
-  }
+    check: () => Promise<HealthStatus>;
+  };
 }
 
 // Implement the API
@@ -171,12 +171,14 @@ const aiTrendPublishAPI: AITrendPublishAPI = {
 
   config: {
     get: (key) => ipcRenderer.invoke('database:config:get', key),
-    set: (key, value, description) => ipcRenderer.invoke('database:config:set', key, value, description),
+    set: (key, value, description) =>
+      ipcRenderer.invoke('database:config:set', key, value, description),
   },
 
   vector: {
     index: (item) => ipcRenderer.invoke('database:vector:index', item),
-    search: (query, limit, source) => ipcRenderer.invoke('database:vector:search', query, limit, source),
+    search: (query, limit, source) =>
+      ipcRenderer.invoke('database:vector:search', query, limit, source),
   },
 
   // Workflow operations
@@ -210,10 +212,10 @@ const aiTrendPublishAPI: AITrendPublishAPI = {
   health: {
     check: () => ipcRenderer.invoke('health:check'),
   },
-}
+};
 
 // Expose API to renderer
-contextBridge.exposeInMainWorld('aiTrendPublish', aiTrendPublishAPI)
+contextBridge.exposeInMainWorld('aiTrendPublish', aiTrendPublishAPI);
 
 // Export types for use in renderer
 export type {
@@ -224,4 +226,4 @@ export type {
   QueueStats,
   ScheduledJob,
   HealthStatus,
-}
+};

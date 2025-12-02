@@ -3,31 +3,38 @@
 // ============================================================================
 
 import Database from 'better-sqlite3'
-import { createRequire } from 'module'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
 import type {
   DatabaseService,
-  ConfigDto,
   TemplateDto,
   TemplateCategoryDto,
   TemplateVersionDto,
   DataSourceDto,
-  VectorItemDto,
   VectorSearchResultDto,
-  CreateConfigDto,
   CreateTemplateCategoryDto,
   CreateTemplateDto,
   CreateDataSourceDto,
   CreateVectorItemDto,
   CreateTemplateVersionDto,
-  UpdateConfigDto,
   UpdateTemplateCategoryDto,
   UpdateTemplateDto,
   UpdateDataSourceDto,
+  WorkflowExecutionDto,
+  WorkflowStageDto,
+  CollectedItemDto,
+  AnalysisResultDto,
+  PublishedContentDto,
+  WorkflowLogDto,
+  CreateWorkflowExecutionDto,
+  CreateWorkflowStageDto,
+  CreateCollectedItemDto,
+  CreateAnalysisResultDto,
+  CreatePublishedContentDto,
+  CreateWorkflowLogDto,
+  UpdateWorkflowExecutionDto,
+  UpdateWorkflowStageDto,
+  UpdateCollectedItemDto,
+  UpdatePublishedContentDto
 } from '../interfaces/dto'
-
-const require = createRequire(import.meta.url)
 
 export class SQLiteService implements DatabaseService {
   private db: Database.Database
@@ -116,6 +123,108 @@ CREATE TABLE IF NOT EXISTS vector_items (
 );
 
 -- ============================================================================
+-- Workflow Management Tables
+-- ============================================================================
+
+-- Workflow executions
+CREATE TABLE IF NOT EXISTS workflow_executions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  data_source_ids TEXT NOT NULL,
+  template_id INTEGER,
+  start_time DATETIME,
+  end_time DATETIME,
+  result TEXT,
+  error TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (template_id) REFERENCES templates(id)
+);
+
+-- Workflow stages
+CREATE TABLE IF NOT EXISTS workflow_stages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  execution_id INTEGER NOT NULL,
+  stage TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  start_time DATETIME,
+  end_time DATETIME,
+  progress INTEGER DEFAULT 0,
+  message TEXT,
+  error TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (execution_id) REFERENCES workflow_executions(id)
+);
+
+-- Collected items from data sources
+CREATE TABLE IF NOT EXISTS collected_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  execution_id INTEGER NOT NULL,
+  source_id INTEGER NOT NULL,
+  source_name TEXT NOT NULL,
+  raw_content TEXT NOT NULL,
+  url TEXT,
+  metadata TEXT,
+  quality REAL,
+  status TEXT DEFAULT 'new',
+  collected_at DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (execution_id) REFERENCES workflow_executions(id),
+  FOREIGN KEY (source_id) REFERENCES data_sources(id)
+);
+
+-- AI analysis results
+CREATE TABLE IF NOT EXISTS analysis_results (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  execution_id INTEGER NOT NULL,
+  collected_item_id INTEGER,
+  stage_id INTEGER,
+  content TEXT NOT NULL,
+  metadata TEXT,
+  model TEXT,
+  tokens INTEGER,
+  status TEXT NOT NULL DEFAULT 'pending',
+  error TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (execution_id) REFERENCES workflow_executions(id),
+  FOREIGN KEY (collected_item_id) REFERENCES collected_items(id),
+  FOREIGN KEY (stage_id) REFERENCES workflow_stages(id)
+);
+
+-- Published content
+CREATE TABLE IF NOT EXISTS published_content (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  execution_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  url TEXT,
+  status TEXT DEFAULT 'draft',
+  views INTEGER DEFAULT 0,
+  likes INTEGER DEFAULT 0,
+  published_at DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (execution_id) REFERENCES workflow_executions(id)
+);
+
+-- Workflow execution logs
+CREATE TABLE IF NOT EXISTS workflow_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  execution_id INTEGER NOT NULL,
+  stage_id INTEGER,
+  level TEXT NOT NULL,
+  message TEXT NOT NULL,
+  data TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (execution_id) REFERENCES workflow_executions(id),
+  FOREIGN KEY (stage_id) REFERENCES workflow_stages(id)
+);
+
+-- ============================================================================
 -- Indexes for better performance
 -- ============================================================================
 
@@ -126,6 +235,23 @@ CREATE INDEX IF NOT EXISTS idx_data_sources_type ON data_sources(type);
 CREATE INDEX IF NOT EXISTS idx_data_sources_active ON data_sources(is_active);
 CREATE INDEX IF NOT EXISTS idx_vector_items_source ON vector_items(source);
 CREATE INDEX IF NOT EXISTS idx_vector_items_created ON vector_items(created_at);
+
+-- Workflow indexes
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_status ON workflow_executions(status);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_type ON workflow_executions(type);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_created ON workflow_executions(created_at);
+CREATE INDEX IF NOT EXISTS idx_workflow_stages_execution ON workflow_stages(execution_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_stages_stage ON workflow_stages(stage);
+CREATE INDEX IF NOT EXISTS idx_collected_items_execution ON collected_items(execution_id);
+CREATE INDEX IF NOT EXISTS idx_collected_items_source ON collected_items(source_id);
+CREATE INDEX IF NOT EXISTS idx_collected_items_status ON collected_items(status);
+CREATE INDEX IF NOT EXISTS idx_analysis_results_execution ON analysis_results(execution_id);
+CREATE INDEX IF NOT EXISTS idx_analysis_results_stage ON analysis_results(stage_id);
+CREATE INDEX IF NOT EXISTS idx_published_content_execution ON published_content(execution_id);
+CREATE INDEX IF NOT EXISTS idx_published_content_status ON published_content(status);
+CREATE INDEX IF NOT EXISTS idx_workflow_logs_execution ON workflow_logs(execution_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_logs_level ON workflow_logs(level);
+CREATE INDEX IF NOT EXISTS idx_workflow_logs_created ON workflow_logs(created_at);
 
 -- ============================================================================
 -- Default data
@@ -213,7 +339,10 @@ INSERT OR IGNORE INTO config (key, value, description) VALUES
     return this.mapTemplateCategory(row)
   }
 
-  async updateTemplateCategory(id: number, updates: UpdateTemplateCategoryDto): Promise<TemplateCategoryDto> {
+  async updateTemplateCategory(
+    id: number,
+    updates: UpdateTemplateCategoryDto
+  ): Promise<TemplateCategoryDto> {
     const fields: string[] = []
     const values: unknown[] = []
 
@@ -345,7 +474,9 @@ INSERT OR IGNORE INTO config (key, value, description) VALUES
   // ============================================================================
 
   async getTemplateVersions(templateId: number): Promise<TemplateVersionDto[]> {
-    const stmt = this.db.prepare('SELECT * FROM template_versions WHERE template_id = ? ORDER BY version DESC')
+    const stmt = this.db.prepare(
+      'SELECT * FROM template_versions WHERE template_id = ? ORDER BY version DESC'
+    )
     const rows = stmt.all(templateId)
     return rows.map(this.mapTemplateVersion)
   }
@@ -484,7 +615,9 @@ INSERT OR IGNORE INTO config (key, value, description) VALUES
       INSERT INTO vector_items (content, metadata, embedding, source, source_id)
       VALUES (?, ?, ?, ?, ?)
     `)
-    const embeddingBlob = item.embedding ? Buffer.from(new Float32Array(item.embedding).buffer) : null
+    const embeddingBlob = item.embedding
+      ? Buffer.from(new Float32Array(item.embedding).buffer)
+      : null
     const result = stmt.run(
       item.content,
       item.metadata ? JSON.stringify(item.metadata) : null,
@@ -502,6 +635,9 @@ INSERT OR IGNORE INTO config (key, value, description) VALUES
   ): Promise<VectorSearchResultDto[]> {
     // SQLite doesn't have native vector search, so we'll do a simple implementation
     // For production, consider using SQLite extensions or a dedicated vector database
+    // queryEmbedding is accepted for interface compatibility but not used in this basic implementation
+    void queryEmbedding
+
     let query = 'SELECT * FROM vector_items WHERE 1=1'
     const params: unknown[] = []
 
@@ -514,18 +650,18 @@ INSERT OR IGNORE INTO config (key, value, description) VALUES
     params.push(limit)
 
     const stmt = this.db.prepare(query)
-    const rows = stmt.all(...params)
+    const rows = stmt.all(...params) as any[]
 
     // For now, return items without similarity scores
     // TODO: Implement proper vector similarity search
-    return rows.map(row => ({
+    return rows.map((row: any) => ({
       id: row.id,
       content: row.content,
       metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
       source: row.source,
       sourceId: row.source_id,
       similarity: 0.0,
-      createdAt: row.created_at ? new Date(row.created_at) : undefined,
+      createdAt: row.created_at ? new Date(row.created_at) : undefined
     }))
   }
 
@@ -538,13 +674,431 @@ INSERT OR IGNORE INTO config (key, value, description) VALUES
       const stmt = this.db.prepare('SELECT 1')
       stmt.get()
       return true
-    } catch (error) {
+    } catch {
       return false
     }
   }
 
   async close(): Promise<void> {
     this.db.close()
+  }
+
+  // ============================================================================
+  // Workflow Execution Operations
+  // ============================================================================
+
+  async getWorkflowExecutions(limit = 50, status?: string): Promise<WorkflowExecutionDto[]> {
+    let query = 'SELECT * FROM workflow_executions WHERE 1=1'
+    const params: unknown[] = []
+
+    if (status) {
+      query += ' AND status = ?'
+      params.push(status)
+    }
+
+    query += ' ORDER BY created_at DESC LIMIT ?'
+    params.push(limit)
+
+    const stmt = this.db.prepare(query)
+    const rows = stmt.all(...params)
+    return rows.map(this.mapWorkflowExecution)
+  }
+
+  async getWorkflowExecutionById(id: number): Promise<WorkflowExecutionDto | null> {
+    const stmt = this.db.prepare('SELECT * FROM workflow_executions WHERE id = ?')
+    const row = stmt.get(id)
+    return row ? this.mapWorkflowExecution(row) : null
+  }
+
+  async createWorkflowExecution(
+    execution: CreateWorkflowExecutionDto
+  ): Promise<WorkflowExecutionDto> {
+    const stmt = this.db.prepare(`
+      INSERT INTO workflow_executions (name, type, status, data_source_ids, template_id, start_time, result, error)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    const result = stmt.run(
+      execution.name,
+      execution.type,
+      execution.status,
+      execution.dataSourceIds,
+      execution.templateId || null,
+      execution.startTime ? execution.startTime.toISOString() : null,
+      execution.result || null,
+      execution.error || null
+    )
+    return this.getWorkflowExecutionById(
+      result.lastInsertRowid as number
+    ) as Promise<WorkflowExecutionDto>
+  }
+
+  async updateWorkflowExecution(
+    id: number,
+    updates: UpdateWorkflowExecutionDto
+  ): Promise<WorkflowExecutionDto> {
+    const fields: string[] = []
+    const values: unknown[] = []
+
+    if (updates.name !== undefined) {
+      fields.push('name = ?')
+      values.push(updates.name)
+    }
+    if (updates.type !== undefined) {
+      fields.push('type = ?')
+      values.push(updates.type)
+    }
+    if (updates.status !== undefined) {
+      fields.push('status = ?')
+      values.push(updates.status)
+    }
+    if (updates.dataSourceIds !== undefined) {
+      fields.push('data_source_ids = ?')
+      values.push(updates.dataSourceIds)
+    }
+    if (updates.templateId !== undefined) {
+      fields.push('template_id = ?')
+      values.push(updates.templateId)
+    }
+    if (updates.startTime !== undefined) {
+      fields.push('start_time = ?')
+      values.push(updates.startTime.toISOString())
+    }
+    if (updates.endTime !== undefined) {
+      fields.push('end_time = ?')
+      values.push(updates.endTime.toISOString())
+    }
+    if (updates.result !== undefined) {
+      fields.push('result = ?')
+      values.push(updates.result)
+    }
+    if (updates.error !== undefined) {
+      fields.push('error = ?')
+      values.push(updates.error)
+    }
+
+    if (fields.length === 0) {
+      return this.getWorkflowExecutionById(id) as Promise<WorkflowExecutionDto>
+    }
+
+    const stmt = this.db.prepare(`
+      UPDATE workflow_executions
+      SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `)
+    stmt.run(...values, id)
+    return this.getWorkflowExecutionById(id) as Promise<WorkflowExecutionDto>
+  }
+
+  async deleteWorkflowExecution(id: number): Promise<void> {
+    const stmt = this.db.prepare('DELETE FROM workflow_executions WHERE id = ?')
+    stmt.run(id)
+  }
+
+  // ============================================================================
+  // Workflow Stage Operations
+  // ============================================================================
+
+  async getWorkflowStages(executionId: number): Promise<WorkflowStageDto[]> {
+    const stmt = this.db.prepare(
+      'SELECT * FROM workflow_stages WHERE execution_id = ? ORDER BY created_at'
+    )
+    const rows = stmt.all(executionId)
+    return rows.map(this.mapWorkflowStage)
+  }
+
+  async getWorkflowStageById(id: number): Promise<WorkflowStageDto | null> {
+    const stmt = this.db.prepare('SELECT * FROM workflow_stages WHERE id = ?')
+    const row = stmt.get(id)
+    return row ? this.mapWorkflowStage(row) : null
+  }
+
+  async createWorkflowStage(stage: CreateWorkflowStageDto): Promise<WorkflowStageDto> {
+    const stmt = this.db.prepare(`
+      INSERT INTO workflow_stages (execution_id, stage, status, start_time, end_time, progress, message, error)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    const result = stmt.run(
+      stage.executionId,
+      stage.stage,
+      stage.status,
+      stage.startTime ? stage.startTime.toISOString() : null,
+      stage.endTime ? stage.endTime.toISOString() : null,
+      stage.progress || 0,
+      stage.message || null,
+      stage.error || null
+    )
+    return this.getWorkflowStageById(result.lastInsertRowid as number) as Promise<WorkflowStageDto>
+  }
+
+  async updateWorkflowStage(
+    id: number,
+    updates: UpdateWorkflowStageDto
+  ): Promise<WorkflowStageDto> {
+    const fields: string[] = []
+    const values: unknown[] = []
+
+    if (updates.status !== undefined) {
+      fields.push('status = ?')
+      values.push(updates.status)
+    }
+    if (updates.startTime !== undefined) {
+      fields.push('start_time = ?')
+      values.push(updates.startTime.toISOString())
+    }
+    if (updates.endTime !== undefined) {
+      fields.push('end_time = ?')
+      values.push(updates.endTime.toISOString())
+    }
+    if (updates.progress !== undefined) {
+      fields.push('progress = ?')
+      values.push(updates.progress)
+    }
+    if (updates.message !== undefined) {
+      fields.push('message = ?')
+      values.push(updates.message)
+    }
+    if (updates.error !== undefined) {
+      fields.push('error = ?')
+      values.push(updates.error)
+    }
+
+    if (fields.length === 0) {
+      return this.getWorkflowStageById(id) as Promise<WorkflowStageDto>
+    }
+
+    const stmt = this.db.prepare(`
+      UPDATE workflow_stages
+      SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `)
+    stmt.run(...values, id)
+    return this.getWorkflowStageById(id) as Promise<WorkflowStageDto>
+  }
+
+  // ============================================================================
+  // Collected Items Operations
+  // ============================================================================
+
+  async getCollectedItems(executionId: number): Promise<CollectedItemDto[]> {
+    const stmt = this.db.prepare(
+      'SELECT * FROM collected_items WHERE execution_id = ? ORDER BY created_at DESC'
+    )
+    const rows = stmt.all(executionId)
+    return rows.map(this.mapCollectedItem)
+  }
+
+  async createCollectedItem(item: CreateCollectedItemDto): Promise<CollectedItemDto> {
+    const stmt = this.db.prepare(`
+      INSERT INTO collected_items (execution_id, source_id, source_name, raw_content, url, metadata, quality, status, collected_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    const result = stmt.run(
+      item.executionId,
+      item.sourceId,
+      item.sourceName,
+      item.rawContent,
+      item.url || null,
+      item.metadata ? JSON.stringify(item.metadata) : null,
+      item.quality || null,
+      item.status,
+      item.collectedAt ? item.collectedAt.toISOString() : null
+    )
+    const stmt2 = this.db.prepare('SELECT * FROM collected_items WHERE id = ?')
+    const row = stmt2.get(result.lastInsertRowid)
+    return this.mapCollectedItem(row)
+  }
+
+  async updateCollectedItem(
+    id: number,
+    updates: UpdateCollectedItemDto
+  ): Promise<CollectedItemDto> {
+    const fields: string[] = []
+    const values: unknown[] = []
+
+    if (updates.status !== undefined) {
+      fields.push('status = ?')
+      values.push(updates.status)
+    }
+    if (updates.quality !== undefined) {
+      fields.push('quality = ?')
+      values.push(updates.quality)
+    }
+    if (updates.metadata !== undefined) {
+      fields.push('metadata = ?')
+      values.push(JSON.stringify(updates.metadata))
+    }
+
+    if (fields.length === 0) {
+      const stmt = this.db.prepare('SELECT * FROM collected_items WHERE id = ?')
+      const row = stmt.get(id)
+      return this.mapCollectedItem(row)
+    }
+
+    const stmt = this.db.prepare(`
+      UPDATE collected_items
+      SET ${fields.join(', ')}
+      WHERE id = ?
+    `)
+    stmt.run(...values, id)
+    const stmt2 = this.db.prepare('SELECT * FROM collected_items WHERE id = ?')
+    const row = stmt2.get(id)
+    return this.mapCollectedItem(row)
+  }
+
+  // ============================================================================
+  // Analysis Results Operations
+  // ============================================================================
+
+  async getAnalysisResults(executionId: number): Promise<AnalysisResultDto[]> {
+    const stmt = this.db.prepare(
+      'SELECT * FROM analysis_results WHERE execution_id = ? ORDER BY created_at'
+    )
+    const rows = stmt.all(executionId)
+    return rows.map(this.mapAnalysisResult)
+  }
+
+  async createAnalysisResult(result: CreateAnalysisResultDto): Promise<AnalysisResultDto> {
+    const stmt = this.db.prepare(`
+      INSERT INTO analysis_results (execution_id, collected_item_id, stage_id, content, metadata, model, tokens, status, error)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    const queryResult = stmt.run(
+      result.executionId,
+      result.collectedItemId || null,
+      result.stageId || null,
+      result.content,
+      result.metadata ? JSON.stringify(result.metadata) : null,
+      result.model || null,
+      result.tokens || null,
+      result.status,
+      result.error || null
+    )
+    const stmt2 = this.db.prepare('SELECT * FROM analysis_results WHERE id = ?')
+    const row = stmt2.get(queryResult.lastInsertRowid)
+    return this.mapAnalysisResult(row)
+  }
+
+  // ============================================================================
+  // Published Content Operations
+  // ============================================================================
+
+  async getPublishedContent(executionId: number): Promise<PublishedContentDto[]> {
+    const stmt = this.db.prepare(
+      'SELECT * FROM published_content WHERE execution_id = ? ORDER BY created_at DESC'
+    )
+    const rows = stmt.all(executionId)
+    return rows.map(this.mapPublishedContent)
+  }
+
+  async createPublishedContent(content: CreatePublishedContentDto): Promise<PublishedContentDto> {
+    const stmt = this.db.prepare(`
+      INSERT INTO published_content (execution_id, title, content, platform, url, status, views, likes, published_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    const result = stmt.run(
+      content.executionId,
+      content.title,
+      content.content,
+      content.platform,
+      content.url || null,
+      content.status,
+      content.views || 0,
+      content.likes || 0,
+      content.publishedAt ? content.publishedAt.toISOString() : null
+    )
+    const stmt2 = this.db.prepare('SELECT * FROM published_content WHERE id = ?')
+    const row = stmt2.get(result.lastInsertRowid)
+    return this.mapPublishedContent(row)
+  }
+
+  async updatePublishedContent(
+    id: number,
+    updates: UpdatePublishedContentDto
+  ): Promise<PublishedContentDto> {
+    const fields: string[] = []
+    const values: unknown[] = []
+
+    if (updates.title !== undefined) {
+      fields.push('title = ?')
+      values.push(updates.title)
+    }
+    if (updates.content !== undefined) {
+      fields.push('content = ?')
+      values.push(updates.content)
+    }
+    if (updates.status !== undefined) {
+      fields.push('status = ?')
+      values.push(updates.status)
+    }
+    if (updates.url !== undefined) {
+      fields.push('url = ?')
+      values.push(updates.url)
+    }
+    if (updates.views !== undefined) {
+      fields.push('views = ?')
+      values.push(updates.views)
+    }
+    if (updates.likes !== undefined) {
+      fields.push('likes = ?')
+      values.push(updates.likes)
+    }
+    if (updates.publishedAt !== undefined) {
+      fields.push('published_at = ?')
+      values.push(updates.publishedAt.toISOString())
+    }
+
+    if (fields.length === 0) {
+      const stmt = this.db.prepare('SELECT * FROM published_content WHERE id = ?')
+      const row = stmt.get(id)
+      return this.mapPublishedContent(row)
+    }
+
+    const stmt = this.db.prepare(`
+      UPDATE published_content
+      SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `)
+    stmt.run(...values, id)
+    const stmt2 = this.db.prepare('SELECT * FROM published_content WHERE id = ?')
+    const row = stmt2.get(id)
+    return this.mapPublishedContent(row)
+  }
+
+  // ============================================================================
+  // Workflow Logs Operations
+  // ============================================================================
+
+  async getWorkflowLogs(executionId: number, level?: string): Promise<WorkflowLogDto[]> {
+    let query = 'SELECT * FROM workflow_logs WHERE execution_id = ?'
+    const params: unknown[] = [executionId]
+
+    if (level) {
+      query += ' AND level = ?'
+      params.push(level)
+    }
+
+    query += ' ORDER BY created_at DESC LIMIT 500'
+
+    const stmt = this.db.prepare(query)
+    const rows = stmt.all(...params)
+    return rows.map(this.mapWorkflowLog)
+  }
+
+  async createWorkflowLog(log: CreateWorkflowLogDto): Promise<WorkflowLogDto> {
+    const stmt = this.db.prepare(`
+      INSERT INTO workflow_logs (execution_id, stage_id, level, message, data)
+      VALUES (?, ?, ?, ?, ?)
+    `)
+    const result = stmt.run(
+      log.executionId,
+      log.stageId || null,
+      log.level,
+      log.message,
+      log.data ? JSON.stringify(log.data) : null
+    )
+    const stmt2 = this.db.prepare('SELECT * FROM workflow_logs WHERE id = ?')
+    const row = stmt2.get(result.lastInsertRowid)
+    return this.mapWorkflowLog(row)
   }
 
   // ============================================================================
@@ -556,7 +1110,7 @@ INSERT OR IGNORE INTO config (key, value, description) VALUES
       id: row.id,
       name: row.name,
       description: row.description,
-      createdAt: row.created_at ? new Date(row.created_at) : undefined,
+      createdAt: row.created_at ? new Date(row.created_at) : undefined
     }
   }
 
@@ -571,7 +1125,7 @@ INSERT OR IGNORE INTO config (key, value, description) VALUES
       version: row.version,
       isActive: Boolean(row.is_active),
       createdAt: row.created_at ? new Date(row.created_at) : undefined,
-      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined
     }
   }
 
@@ -582,7 +1136,7 @@ INSERT OR IGNORE INTO config (key, value, description) VALUES
       version: row.version,
       content: row.content,
       changelog: row.changelog,
-      createdAt: row.created_at ? new Date(row.created_at) : undefined,
+      createdAt: row.created_at ? new Date(row.created_at) : undefined
     }
   }
 
@@ -595,7 +1149,101 @@ INSERT OR IGNORE INTO config (key, value, description) VALUES
       isActive: Boolean(row.is_active),
       lastSyncAt: row.last_sync_at ? new Date(row.last_sync_at) : undefined,
       createdAt: row.created_at ? new Date(row.created_at) : undefined,
-      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined
+    }
+  }
+
+  private mapWorkflowExecution(row: any): WorkflowExecutionDto {
+    return {
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      status: row.status,
+      dataSourceIds: row.data_source_ids,
+      templateId: row.template_id,
+      startTime: row.start_time ? new Date(row.start_time) : undefined,
+      endTime: row.end_time ? new Date(row.end_time) : undefined,
+      result: row.result,
+      error: row.error,
+      createdAt: row.created_at ? new Date(row.created_at) : undefined,
+      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined
+    }
+  }
+
+  private mapWorkflowStage(row: any): WorkflowStageDto {
+    return {
+      id: row.id,
+      executionId: row.execution_id,
+      stage: row.stage,
+      status: row.status,
+      startTime: row.start_time ? new Date(row.start_time) : undefined,
+      endTime: row.end_time ? new Date(row.end_time) : undefined,
+      progress: row.progress,
+      message: row.message,
+      error: row.error,
+      createdAt: row.created_at ? new Date(row.created_at) : undefined,
+      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined
+    }
+  }
+
+  private mapCollectedItem(row: any): CollectedItemDto {
+    return {
+      id: row.id,
+      executionId: row.execution_id,
+      sourceId: row.source_id,
+      sourceName: row.source_name,
+      rawContent: row.raw_content,
+      url: row.url,
+      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      quality: row.quality,
+      status: row.status,
+      collectedAt: row.collected_at ? new Date(row.collected_at) : undefined,
+      createdAt: row.created_at ? new Date(row.created_at) : undefined
+    }
+  }
+
+  private mapAnalysisResult(row: any): AnalysisResultDto {
+    return {
+      id: row.id,
+      executionId: row.execution_id,
+      collectedItemId: row.collected_item_id,
+      stageId: row.stage_id,
+      content: row.content,
+      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      model: row.model,
+      tokens: row.tokens,
+      status: row.status,
+      error: row.error,
+      createdAt: row.created_at ? new Date(row.created_at) : undefined
+    }
+  }
+
+  private mapPublishedContent(row: any): PublishedContentDto {
+    return {
+      id: row.id,
+      executionId: row.execution_id,
+      title: row.title,
+      content: row.content,
+      platform: row.platform,
+      url: row.url,
+      status: row.status,
+      views: row.views,
+      likes: row.likes,
+      publishedAt: row.published_at ? new Date(row.published_at) : undefined,
+      createdAt: row.created_at ? new Date(row.created_at) : undefined,
+      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined
+    }
+  }
+
+  private mapWorkflowLog(row: any): WorkflowLogDto {
+    return {
+      id: row.id,
+      executionId: row.execution_id,
+      stageId: row.stage_id,
+      level: row.level,
+      message: row.message,
+      data: row.data ? JSON.parse(row.data) : undefined,
+      createdAt: row.created_at ? new Date(row.created_at) : undefined
     }
   }
 }

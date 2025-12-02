@@ -1,24 +1,24 @@
-import { WeixinArticleWorkflow } from '../../src/workflows/weixin-article.workflow.js'
-import { WorkflowContext } from '../../src/workflows/interfaces.js'
+import { WeixinArticleWorkflow } from '../../src/workflows/weixin-article.workflow.js';
+import { WorkflowContext } from '../../src/workflows/interfaces.js';
 
 describe('WeixinArticleWorkflow', () => {
-  let workflow: WeixinArticleWorkflow
+  let workflow: WeixinArticleWorkflow;
 
   beforeEach(() => {
-    workflow = new WeixinArticleWorkflow()
-  })
+    workflow = new WeixinArticleWorkflow();
+  });
 
   it('should have correct type and metadata', () => {
-    expect(workflow.type).toBe('weixin-article')
-    expect(workflow.name).toBe('WeChat Article Workflow')
-    expect(workflow.description).toBe('Generates and publishes AI trend articles to WeChat')
-  })
+    expect(workflow.type).toBe('weixin-article');
+    expect(workflow.name).toBe('WeChat Article Workflow');
+    expect(workflow.description).toBe('Generates and publishes AI trend articles to WeChat');
+  });
 
   it('should have a prompt', () => {
-    const prompt = workflow.getPrompt()
-    expect(prompt).toContain('WeChat articles')
-    expect(prompt).toContain('Markdown')
-  })
+    const prompt = workflow.getPrompt();
+    expect(prompt).toContain('WeChat articles');
+    expect(prompt).toContain('Markdown');
+  });
 
   it('should execute with data sources', async () => {
     const context: WorkflowContext = {
@@ -41,17 +41,17 @@ describe('WeixinArticleWorkflow', () => {
           },
         ],
       },
-    }
+    };
 
-    jest.spyOn(workflow as any, 'generateContent').mockResolvedValue('Generated article content')
+    jest.spyOn(workflow as any, 'generateContent').mockResolvedValue('Generated article content');
 
-    const result = await workflow.execute(context)
+    const result = await workflow.execute(context);
 
-    expect(result.success).toBe(true)
-    expect(result.content).toBeDefined()
-    expect(result.metrics).toBeDefined()
-    expect(result.metrics?.itemsCollected).toBe(1)
-  })
+    expect(result.success).toBe(true);
+    expect(result.content).toBeDefined();
+    expect(result.metrics).toBeDefined();
+    expect(result.metrics?.itemsCollected).toBe(1);
+  });
 
   it('should fail without data sources', async () => {
     const context: WorkflowContext = {
@@ -61,8 +61,8 @@ describe('WeixinArticleWorkflow', () => {
       data: {
         sources: [],
       },
-    }
+    };
 
-    await expect(workflow.execute(context)).rejects.toThrow('No data sources provided')
-  })
-})
+    await expect(workflow.execute(context)).rejects.toThrow('No data sources provided');
+  });
+});

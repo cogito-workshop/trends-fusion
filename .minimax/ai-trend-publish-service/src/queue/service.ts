@@ -1,24 +1,24 @@
-import { Queue, Worker, Job } from 'bullmq'
-import { configManager } from '../utils/config.js'
-import { logger } from '../utils/logger.js'
-import { workflowEngine } from '../workflows/engine.js'
-import { JobData, JobOptions, QueueConfig } from './index.js'
+import { Queue, Worker, Job } from 'bullmq';
+import { configManager } from '../utils/config.js';
+import { logger } from '../utils/logger.js';
+import { workflowEngine } from '../workflows/engine.js';
+import { JobData, JobOptions, QueueConfig } from './index.js';
 
 export class QueueService {
-  private static instance: QueueService
-  private workflowsQueue: Queue
-  private notificationQueue: Queue
-  private worker: Worker
+  private static instance: QueueService;
+  private workflowsQueue: Queue;
+  private notificationQueue: Queue;
+  private worker: Worker;
 
   private constructor() {
-    this.initializeQueues()
+    this.initializeQueues();
   }
 
   static getInstance(): QueueService {
     if (!QueueService.instance) {
-      QueueService.instance = new QueueService()
+      QueueService.instance = new QueueService();
     }
-    return QueueService.instance
+    return QueueService.instance;
   }
 
   private initializeQueues(): void {
@@ -26,23 +26,23 @@ export class QueueService {
       host: configManager.get('REDIS_HOST') || '127.0.0.1',
       port: Number(configManager.get('REDIS_PORT')) || 6379,
       password: configManager.get('REDIS_PASSWORD') || undefined,
-    }
+    };
 
     logger.info({
       msg: 'Initializing job queues',
       redis: `${connection.host}:${connection.port}`,
-    })
+    });
 
-    this.workflowsQueue = new Queue('workflows', { connection })
-    this.notificationQueue = new Queue('notifications', { connection })
+    this.workflowsQueue = new Queue('workflows', { connection });
+    this.notificationQueue = new Queue('notifications', { connection });
 
     this.worker = new Worker(
       'workflows',
       async (job: Job<JobData>) => {
-        return await this.processWorkflowJob(job)
+        return await this.processWorkflowJob(job);
       },
       { connection }
-    )
+    );
 
     this.worker.on('completed', (job) => {
       logger.info({
@@ -50,8 +50,8 @@ export class QueueService {
         jobId: job.id,
         type: job.name,
         duration: job.finishedOn! - job.timestamp,
-      })
-    })
+      });
+    });
 
     this.worker.on('failed', (job, err) => {
       logger.error({
@@ -59,38 +59,35 @@ export class QueueService {
         jobId: job?.id,
         error: err.message,
         attempts: job?.attemptsMade,
-      })
-    })
+      });
+    });
 
-    logger.info('Queue service initialized')
+    logger.info('Queue service initialized');
   }
 
   private async processWorkflowJob(job: Job<JobData>): Promise<unknown> {
-    const { type, payload } = job.data
+    const { type, payload } = job.data;
 
     if (type !== 'workflow') {
-      throw new Error(`Invalid job type: ${type}`)
+      throw new Error(`Invalid job type: ${type}`);
     }
 
     const { workflowType, sources, params } = payload as {
-      workflowType: string
-      sources?: string[]
-      params?: Record<string, unknown>
-    }
+      workflowType: string;
+      sources?: string[];
+      params?: Record<string, unknown>;
+    };
 
     logger.info({
       msg: 'Processing workflow job',
       jobId: job.id,
       workflowType,
       sources,
-    })
+    });
 
-    const result = await workflowEngine.executeWorkflow(
-      workflowType as any,
-      { sources, params }
-    )
+    const result = await workflowEngine.executeWorkflow(workflowType as any, { sources, params });
 
-    return result
+    return result;
   }
 
   async addWorkflowJob(
@@ -105,7 +102,7 @@ export class QueueService {
       removeOnComplete: 10,
       removeOnFail: 5,
       ...options,
-    }
+    };
 
     const job = await this.workflowsQueue.add(
       'workflow',
@@ -118,16 +115,16 @@ export class QueueService {
         },
       },
       defaultOptions
-    )
+    );
 
     logger.info({
       msg: 'Workflow job added',
       jobId: job.id,
       workflowType,
       sources,
-    })
+    });
 
-    return job.id!
+    return job.id!;
   }
 
   async addNotificationJob(
@@ -147,25 +144,25 @@ export class QueueService {
         },
       },
       options
-    )
+    );
 
     logger.info({
       msg: 'Notification job added',
       jobId: job.id,
       type,
-    })
+    });
 
-    return job.id!
+    return job.id!;
   }
 
   async getJobStatus(jobId: string): Promise<unknown> {
-    const job = await this.workflowsQueue.getJob(jobId)
+    const job = await this.workflowsQueue.getJob(jobId);
     if (!job) {
-      return { status: 'not_found' }
+      return { status: 'not_found' };
     }
 
-    const state = await job.getState()
-    const progress = job.progress
+    const state = await job.getState();
+    const progress = job.progress;
 
     return {
       jobId: job.id,
@@ -177,67 +174,63 @@ export class QueueService {
       failed: job.failedReason,
       attempts: job.attemptsMade,
       data: job.data,
-    }
+    };
   }
 
-  async getJobs(status: 'waiting' | 'active' | 'completed' | 'failed' | 'delayed'): Promise<unknown[]> {
-    const jobs = await this.workflowsQueue.getJobs([status])
-    return jobs.map(job => ({
+  async getJobs(
+    status: 'waiting' | 'active' | 'completed' | 'failed' | 'delayed'
+  ): Promise<unknown[]> {
+    const jobs = await this.workflowsQueue.getJobs([status]);
+    return jobs.map((job) => ({
       jobId: job.id,
       status,
       created: job.timestamp,
       data: job.data,
-    }))
+    }));
   }
 
   async cleanStaleJobs(): Promise<void> {
-    const completed = await this.workflowsQueue.clean(24 * 60 * 60 * 1000, 'completed')
-    const failed = await this.workflowsQueue.clean(24 * 60 * 60 * 1000, 'failed')
+    const completed = await this.workflowsQueue.clean(24 * 60 * 60 * 1000, 'completed');
+    const failed = await this.workflowsQueue.clean(24 * 60 * 60 * 1000, 'failed');
 
     logger.info({
       msg: 'Cleaned stale jobs',
       completed,
       failed,
-    })
+    });
   }
 
   async pause(): Promise<void> {
-    await this.workflowsQueue.pause()
-    logger.info('Queue paused')
+    await this.workflowsQueue.pause();
+    logger.info('Queue paused');
   }
 
   async resume(): Promise<void> {
-    await this.workflowsQueue.resume()
-    logger.info('Queue resumed')
+    await this.workflowsQueue.resume();
+    logger.info('Queue resumed');
   }
 
   async close(): Promise<void> {
-    await this.worker.close()
-    await this.workflowsQueue.close()
-    await this.notificationQueue.close()
-    logger.info('Queue service closed')
+    await this.worker.close();
+    await this.workflowsQueue.close();
+    await this.notificationQueue.close();
+    logger.info('Queue service closed');
   }
 
   async getStats(): Promise<{
-    waiting: number
-    active: number
-    completed: number
-    failed: number
-    delayed: number
+    waiting: number;
+    active: number;
+    completed: number;
+    failed: number;
+    delayed: number;
   }> {
-    const [
-      waiting,
-      active,
-      completed,
-      failed,
-      delayed,
-    ] = await Promise.all([
+    const [waiting, active, completed, failed, delayed] = await Promise.all([
       this.workflowsQueue.getWaitingCount(),
       this.workflowsQueue.getActiveCount(),
       this.workflowsQueue.getCompletedCount(),
       this.workflowsQueue.getFailedCount(),
       this.workflowsQueue.getDelayedCount(),
-    ])
+    ]);
 
     return {
       waiting,
@@ -245,8 +238,8 @@ export class QueueService {
       completed,
       failed,
       delayed,
-    }
+    };
   }
 }
 
-export const queueService = QueueService.getInstance()
+export const queueService = QueueService.getInstance();

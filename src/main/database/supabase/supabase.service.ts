@@ -5,23 +5,19 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import type {
   DatabaseService,
-  ConfigDto,
   TemplateDto,
   TemplateCategoryDto,
   TemplateVersionDto,
   DataSourceDto,
-  VectorItemDto,
   VectorSearchResultDto,
-  CreateConfigDto,
   CreateTemplateCategoryDto,
   CreateTemplateDto,
   CreateDataSourceDto,
   CreateVectorItemDto,
   CreateTemplateVersionDto,
-  UpdateConfigDto,
   UpdateTemplateCategoryDto,
   UpdateTemplateDto,
-  UpdateDataSourceDto,
+  UpdateDataSourceDto
 } from '../interfaces/dto'
 
 interface SupabaseConfig {
@@ -36,7 +32,7 @@ export class SupabaseService implements DatabaseService {
   constructor(config?: SupabaseConfig) {
     this.config = config || {
       url: process.env.SUPABASE_URL || '',
-      key: process.env.SUPABASE_KEY || '',
+      key: process.env.SUPABASE_KEY || ''
     }
 
     if (!this.config.url || !this.config.key) {
@@ -51,11 +47,7 @@ export class SupabaseService implements DatabaseService {
   // ============================================================================
 
   async getConfig(key: string): Promise<string | null> {
-    const { data, error } = await this.client
-      .from('config')
-      .select('value')
-      .eq('key', key)
-      .single()
+    const { data, error } = await this.client.from('config').select('value').eq('key', key).single()
 
     if (error) {
       if (error.code === 'PGRST116') {
@@ -68,14 +60,12 @@ export class SupabaseService implements DatabaseService {
   }
 
   async setConfig(key: string, value: string, description?: string): Promise<void> {
-    const { error } = await this.client
-      .from('config')
-      .upsert({
-        key,
-        value,
-        description: description || null,
-        updated_at: new Date().toISOString(),
-      })
+    const { error } = await this.client.from('config').upsert({
+      key,
+      value,
+      description: description || null,
+      updated_at: new Date().toISOString()
+    })
 
     if (error) {
       throw error
@@ -83,10 +73,7 @@ export class SupabaseService implements DatabaseService {
   }
 
   async deleteConfig(key: string): Promise<void> {
-    const { error } = await this.client
-      .from('config')
-      .delete()
-      .eq('key', key)
+    const { error } = await this.client.from('config').delete().eq('key', key)
 
     if (error) {
       throw error
@@ -98,10 +85,7 @@ export class SupabaseService implements DatabaseService {
   // ============================================================================
 
   async getTemplateCategories(): Promise<TemplateCategoryDto[]> {
-    const { data, error } = await this.client
-      .from('template_categories')
-      .select('*')
-      .order('name')
+    const { data, error } = await this.client.from('template_categories').select('*').order('name')
 
     if (error) {
       throw error
@@ -115,7 +99,7 @@ export class SupabaseService implements DatabaseService {
       .from('template_categories')
       .insert({
         name: category.name,
-        description: category.description || null,
+        description: category.description || null
       })
       .select()
       .single()
@@ -127,7 +111,10 @@ export class SupabaseService implements DatabaseService {
     return this.mapTemplateCategory(data)
   }
 
-  async updateTemplateCategory(id: number, updates: UpdateTemplateCategoryDto): Promise<TemplateCategoryDto> {
+  async updateTemplateCategory(
+    id: number,
+    updates: UpdateTemplateCategoryDto
+  ): Promise<TemplateCategoryDto> {
     const { data, error } = await this.client
       .from('template_categories')
       .update(updates)
@@ -143,10 +130,7 @@ export class SupabaseService implements DatabaseService {
   }
 
   async deleteTemplateCategory(id: number): Promise<void> {
-    const { error } = await this.client
-      .from('template_categories')
-      .delete()
-      .eq('id', id)
+    const { error } = await this.client.from('template_categories').delete().eq('id', id)
 
     if (error) {
       throw error
@@ -178,11 +162,7 @@ export class SupabaseService implements DatabaseService {
   }
 
   async getTemplateById(id: number): Promise<TemplateDto | null> {
-    const { data, error } = await this.client
-      .from('templates')
-      .select('*')
-      .eq('id', id)
-      .single()
+    const { data, error } = await this.client.from('templates').select('*').eq('id', id).single()
 
     if (error) {
       if (error.code === 'PGRST116') {
@@ -204,7 +184,7 @@ export class SupabaseService implements DatabaseService {
         content: template.content,
         category_id: template.categoryId || null,
         version: template.version || 1,
-        is_active: template.isActive !== undefined ? template.isActive : true,
+        is_active: template.isActive !== undefined ? template.isActive : true
       })
       .select()
       .single()
@@ -221,7 +201,7 @@ export class SupabaseService implements DatabaseService {
       .from('templates')
       .update({
         ...updates,
-        updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
       .eq('id', id)
       .select()
@@ -235,10 +215,7 @@ export class SupabaseService implements DatabaseService {
   }
 
   async deleteTemplate(id: number): Promise<void> {
-    const { error } = await this.client
-      .from('templates')
-      .delete()
-      .eq('id', id)
+    const { error } = await this.client.from('templates').delete().eq('id', id)
 
     if (error) {
       throw error
@@ -270,7 +247,7 @@ export class SupabaseService implements DatabaseService {
         template_id: version.templateId,
         version: version.version,
         content: version.content,
-        changelog: version.changelog || null,
+        changelog: version.changelog || null
       })
       .select()
       .single()
@@ -326,11 +303,7 @@ export class SupabaseService implements DatabaseService {
   }
 
   async getDataSourceById(id: number): Promise<DataSourceDto | null> {
-    const { data, error } = await this.client
-      .from('data_sources')
-      .select('*')
-      .eq('id', id)
-      .single()
+    const { data, error } = await this.client.from('data_sources').select('*').eq('id', id).single()
 
     if (error) {
       if (error.code === 'PGRST116') {
@@ -366,7 +339,7 @@ export class SupabaseService implements DatabaseService {
         name: source.name,
         type: source.type,
         config: source.config,
-        is_active: source.isActive !== undefined ? source.isActive : true,
+        is_active: source.isActive !== undefined ? source.isActive : true
       })
       .select()
       .single()
@@ -383,7 +356,7 @@ export class SupabaseService implements DatabaseService {
       .from('data_sources')
       .update({
         ...updates,
-        updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
       .eq('id', id)
       .select()
@@ -397,10 +370,7 @@ export class SupabaseService implements DatabaseService {
   }
 
   async deleteDataSource(id: number): Promise<void> {
-    const { error } = await this.client
-      .from('data_sources')
-      .delete()
-      .eq('id', id)
+    const { error } = await this.client.from('data_sources').delete().eq('id', id)
 
     if (error) {
       throw error
@@ -419,7 +389,7 @@ export class SupabaseService implements DatabaseService {
         metadata: item.metadata || null,
         embedding: item.embedding || null,
         source: item.source || null,
-        source_id: item.sourceId || null,
+        source_id: item.sourceId || null
       })
       .select('id')
       .single()
@@ -438,10 +408,10 @@ export class SupabaseService implements DatabaseService {
   ): Promise<VectorSearchResultDto[]> {
     // Supabase with pgvector enables vector similarity search
     // Note: Requires pgvector extension to be enabled
-    let query = this.client.rpc('search_vectors', {
+    const query = this.client.rpc('search_vectors', {
       query_embedding: queryEmbedding,
       match_count: limit,
-      match_source: source || null,
+      match_source: source || null
     })
 
     const { data, error } = await query
@@ -452,15 +422,17 @@ export class SupabaseService implements DatabaseService {
       return this.fallbackVectorSearch(queryEmbedding, limit, source)
     }
 
-    return data?.map((row: any) => ({
-      id: row.id,
-      content: row.content,
-      metadata: row.metadata,
-      source: row.source,
-      sourceId: row.source_id,
-      similarity: row.similarity,
-      createdAt: row.created_at ? new Date(row.created_at) : undefined,
-    })) || []
+    return (
+      data?.map((row: any) => ({
+        id: row.id,
+        content: row.content,
+        metadata: row.metadata,
+        source: row.source,
+        sourceId: row.source_id,
+        similarity: row.similarity,
+        createdAt: row.created_at ? new Date(row.created_at) : undefined
+      })) || []
+    )
   }
 
   private async fallbackVectorSearch(
@@ -468,6 +440,9 @@ export class SupabaseService implements DatabaseService {
     limit: number,
     source?: string
   ): Promise<VectorSearchResultDto[]> {
+    // queryEmbedding is accepted for interface compatibility but not used in this fallback
+    void queryEmbedding
+
     let query = this.client
       .from('vector_items')
       .select('*')
@@ -485,15 +460,17 @@ export class SupabaseService implements DatabaseService {
     }
 
     // Return items without similarity scores for fallback
-    return data?.map(row => ({
-      id: row.id,
-      content: row.content,
-      metadata: row.metadata,
-      source: row.source,
-      sourceId: row.source_id,
-      similarity: 0.0,
-      createdAt: row.created_at ? new Date(row.created_at) : undefined,
-    })) || []
+    return (
+      data?.map((row) => ({
+        id: row.id,
+        content: row.content,
+        metadata: row.metadata,
+        source: row.source,
+        sourceId: row.source_id,
+        similarity: 0.0,
+        createdAt: row.created_at ? new Date(row.created_at) : undefined
+      })) || []
+    )
   }
 
   // ============================================================================
@@ -502,13 +479,10 @@ export class SupabaseService implements DatabaseService {
 
   async ping(): Promise<boolean> {
     try {
-      const { error } = await this.client
-        .from('config')
-        .select('key')
-        .limit(1)
+      const { error } = await this.client.from('config').select('key').limit(1)
 
       return !error
-    } catch (error) {
+    } catch {
       return false
     }
   }
@@ -520,6 +494,106 @@ export class SupabaseService implements DatabaseService {
   }
 
   // ============================================================================
+  // Workflow Execution Operations (Not Implemented for Supabase)
+  // ============================================================================
+
+  async getWorkflowExecutions(_limit?: number, _status?: string): Promise<any[]> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  async getWorkflowExecutionById(_id: number): Promise<any> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  async createWorkflowExecution(_execution: any): Promise<any> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  async updateWorkflowExecution(_id: number, _updates: any): Promise<any> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  async deleteWorkflowExecution(_id: number): Promise<void> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  // ============================================================================
+  // Workflow Stage Operations (Not Implemented for Supabase)
+  // ============================================================================
+
+  async getWorkflowStages(_executionId: number): Promise<any[]> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  async getWorkflowStageById(_id: number): Promise<any> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  async createWorkflowStage(_stage: any): Promise<any> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  async updateWorkflowStage(_id: number, _updates: any): Promise<any> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  // ============================================================================
+  // Collected Items Operations (Not Implemented for Supabase)
+  // ============================================================================
+
+  async getCollectedItems(_executionId: number): Promise<any[]> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  async createCollectedItem(_item: any): Promise<any> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  async updateCollectedItem(_id: number, _updates: any): Promise<any> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  // ============================================================================
+  // Analysis Results Operations (Not Implemented for Supabase)
+  // ============================================================================
+
+  async getAnalysisResults(_executionId: number): Promise<any[]> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  async createAnalysisResult(_result: any): Promise<any> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  // ============================================================================
+  // Published Content Operations (Not Implemented for Supabase)
+  // ============================================================================
+
+  async getPublishedContent(_executionId: number): Promise<any[]> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  async createPublishedContent(_content: any): Promise<any> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  async updatePublishedContent(_id: number, _updates: any): Promise<any> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  // ============================================================================
+  // Workflow Logs Operations (Not Implemented for Supabase)
+  // ============================================================================
+
+  async getWorkflowLogs(_executionId: number, _level?: string): Promise<any[]> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  async createWorkflowLog(_log: any): Promise<any> {
+    throw new Error('Workflow operations not implemented for Supabase')
+  }
+
+  // ============================================================================
   // Helper Methods
   // ============================================================================
 
@@ -528,7 +602,7 @@ export class SupabaseService implements DatabaseService {
       id: row.id,
       name: row.name,
       description: row.description,
-      createdAt: row.created_at ? new Date(row.created_at) : undefined,
+      createdAt: row.created_at ? new Date(row.created_at) : undefined
     }
   }
 
@@ -543,7 +617,7 @@ export class SupabaseService implements DatabaseService {
       version: row.version,
       isActive: row.is_active,
       createdAt: row.created_at ? new Date(row.created_at) : undefined,
-      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined
     }
   }
 
@@ -554,7 +628,7 @@ export class SupabaseService implements DatabaseService {
       version: row.version,
       content: row.content,
       changelog: row.changelog,
-      createdAt: row.created_at ? new Date(row.created_at) : undefined,
+      createdAt: row.created_at ? new Date(row.created_at) : undefined
     }
   }
 
@@ -567,7 +641,7 @@ export class SupabaseService implements DatabaseService {
       isActive: row.is_active,
       lastSyncAt: row.last_sync_at ? new Date(row.last_sync_at) : undefined,
       createdAt: row.created_at ? new Date(row.created_at) : undefined,
-      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined
     }
   }
 }

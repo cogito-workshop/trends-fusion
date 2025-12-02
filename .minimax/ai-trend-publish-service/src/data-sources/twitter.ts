@@ -1,32 +1,32 @@
-import { BaseDataSource, DataSourceParams, CollectedData, DataItem } from './interfaces/index.js'
-import { logger } from '../utils/logger.js'
+import { BaseDataSource, DataSourceParams, CollectedData, DataItem } from './interfaces/index.js';
+import { logger } from '../utils/logger.js';
 
 export class TwitterDataSource extends BaseDataSource {
-  name = 'twitter'
-  platform = 'twitter' as const
+  name = 'twitter';
+  platform = 'twitter' as const;
 
   constructor(config?: { apiKey?: string }) {
-    super(config)
+    super(config);
   }
 
   async collect(params: DataSourceParams = {}): Promise<CollectedData> {
-    const identifier = params.identifier || 'OpenAIDevs'
-    const limit = params.limit || 20
+    const identifier = params.identifier || 'OpenAIDevs';
+    const limit = params.limit || 20;
 
     logger.info({
       msg: 'Collecting data from Twitter',
       identifier,
       limit,
-    })
+    });
 
     try {
       if (!this.apiKey) {
-        logger.warn('Twitter API key not configured, returning mock data')
-        return this.getMockData(identifier, limit)
+        logger.warn('Twitter API key not configured, returning mock data');
+        return this.getMockData(identifier, limit);
       }
 
-      const tweets = await this.fetchTweets(identifier, limit)
-      const items: DataItem[] = tweets.map(tweet => ({
+      const tweets = await this.fetchTweets(identifier, limit);
+      const items: DataItem[] = tweets.map((tweet) => ({
         id: tweet.id,
         title: tweet.text.substring(0, 100),
         content: tweet.text,
@@ -38,7 +38,7 @@ export class TwitterDataSource extends BaseDataSource {
           retweets: tweet.public_metrics?.retweet_count,
           replies: tweet.public_metrics?.reply_count,
         },
-      }))
+      }));
 
       return {
         platform: 'twitter',
@@ -49,20 +49,20 @@ export class TwitterDataSource extends BaseDataSource {
           account: identifier,
           totalItems: items.length,
         },
-      }
+      };
     } catch (error) {
       logger.error({
         msg: 'Error collecting Twitter data',
         error: error instanceof Error ? error.message : String(error),
-      })
+      });
 
-      return this.getMockData(identifier, limit)
+      return this.getMockData(identifier, limit);
     }
   }
 
   private async fetchTweets(username: string, limit: number) {
-    const mockData = this.getMockTweets(username, limit)
-    return mockData
+    const mockData = this.getMockTweets(username, limit);
+    return mockData;
   }
 
   private getMockTweets(username: string, limit: number) {
@@ -91,14 +91,14 @@ export class TwitterDataSource extends BaseDataSource {
         url: `https://twitter.com/${username}/status/3`,
         public_metrics: { like_count: 150, retweet_count: 60, reply_count: 20 },
       },
-    ]
+    ];
 
-    return tweets.slice(0, limit)
+    return tweets.slice(0, limit);
   }
 
   private getMockData(identifier: string, limit: number): CollectedData {
-    const tweets = this.getMockTweets(identifier, limit)
-    const items: DataItem[] = tweets.map(tweet => ({
+    const tweets = this.getMockTweets(identifier, limit);
+    const items: DataItem[] = tweets.map((tweet) => ({
       id: tweet.id,
       title: tweet.text.substring(0, 100),
       content: tweet.text,
@@ -110,7 +110,7 @@ export class TwitterDataSource extends BaseDataSource {
         retweets: tweet.public_metrics?.retweet_count,
         replies: tweet.public_metrics?.reply_count,
       },
-    }))
+    }));
 
     return {
       platform: 'twitter',
@@ -122,12 +122,12 @@ export class TwitterDataSource extends BaseDataSource {
         totalItems: items.length,
         mock: true,
       },
-    }
+    };
   }
 
   validateConfig(): boolean {
-    return true
+    return true;
   }
 }
 
-export const twitterDataSource = new TwitterDataSource()
+export const twitterDataSource = new TwitterDataSource();

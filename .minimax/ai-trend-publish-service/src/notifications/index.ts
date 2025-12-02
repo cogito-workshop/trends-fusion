@@ -1,5 +1,5 @@
-export * from './interfaces.js'
-export { barkProvider } from './bark.provider.js'
-export { dingtalkProvider } from './dingtalk.provider.js'
-export { feishuProvider } from './feishu.provider.js'
-export { NotificationManager, notificationManager } from './manager.js'
+export * from './interfaces.js';
+export { barkProvider } from './bark.provider.js';
+export { dingtalkProvider } from './dingtalk.provider.js';
+export { feishuProvider } from './feishu.provider.js';
+export { NotificationManager, notificationManager } from './manager.js';

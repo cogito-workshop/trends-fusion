@@ -1,11 +1,14 @@
-import { jinaEmbeddingProvider, BaseEmbeddingProvider } from '../../src/providers/embedding/index.js'
+import {
+  jinaEmbeddingProvider,
+  BaseEmbeddingProvider,
+} from '../../src/providers/embedding/index.js';
 
 describe('Embedding Providers', () => {
   describe('BaseEmbeddingProvider', () => {
     class TestProvider extends BaseEmbeddingProvider {
-      name = 'test'
+      name = 'test';
       async embed(): Promise<any> {
-        return { embeddings: [[1, 2, 3]], model: 'test' }
+        return { embeddings: [[1, 2, 3]], model: 'test' };
       }
     }
 
@@ -14,43 +17,46 @@ describe('Embedding Providers', () => {
         apiKey: 'test-key',
         baseUrl: 'https://test.com',
         defaultModel: 'test-model',
-      })
-      expect(provider.validateConfig()).toBe(true)
-    })
+      });
+      expect(provider.validateConfig()).toBe(true);
+    });
 
     it('should invalidate config when api key is missing', () => {
       const provider = new TestProvider({
         apiKey: '',
         baseUrl: 'https://test.com',
         defaultModel: 'test-model',
-      })
-      expect(provider.validateConfig()).toBe(false)
-    })
-  })
+      });
+      expect(provider.validateConfig()).toBe(false);
+    });
+  });
 
   describe('JinaEmbeddingProvider', () => {
     beforeEach(() => {
-      process.env.JINA_API_KEY = 'test-key'
-    })
+      process.env.JINA_API_KEY = 'test-key';
+    });
 
     afterEach(() => {
-      delete process.env.JINA_API_KEY
-    })
+      delete process.env.JINA_API_KEY;
+    });
 
     it('should create instance with correct configuration', () => {
-      expect(jinaEmbeddingProvider.name).toBe('jina-embedding')
-      expect(jinaEmbeddingProvider.validateConfig()).toBe(true)
-    })
+      expect(jinaEmbeddingProvider.name).toBe('jina-embedding');
+      expect(jinaEmbeddingProvider.validateConfig()).toBe(true);
+    });
 
     it('should invalidate when API key is missing', () => {
-      delete process.env.JINA_API_KEY
-      const provider = new (require('../../src/providers/embedding/jina.js').JinaEmbeddingProvider)()
-      expect(provider.validateConfig()).toBe(false)
-    })
+      delete process.env.JINA_API_KEY;
+      const provider =
+        new (require('../../src/providers/embedding/jina.js').JinaEmbeddingProvider)();
+      expect(provider.validateConfig()).toBe(false);
+    });
 
     it('should get model from request or default', () => {
-      expect(jinaEmbeddingProvider.getModel({ input: 'test' })).toBe('jina-embeddings-v2-base-en')
-      expect(jinaEmbeddingProvider.getModel({ input: 'test', model: 'custom-model' })).toBe('custom-model')
-    })
-  })
-})
+      expect(jinaEmbeddingProvider.getModel({ input: 'test' })).toBe('jina-embeddings-v2-base-en');
+      expect(jinaEmbeddingProvider.getModel({ input: 'test', model: 'custom-model' })).toBe(
+        'custom-model'
+      );
+    });
+  });
+});

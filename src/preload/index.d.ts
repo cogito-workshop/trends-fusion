@@ -6,8 +6,50 @@ import type {
   CreateTemplateDto,
   CreateDataSourceDto,
   UpdateTemplateDto,
-  UpdateDataSourceDto,
+  UpdateDataSourceDto
 } from '../main/database/interfaces/dto'
+
+export interface WorkflowResult {
+  jobId: string
+  success: boolean
+  content?: string
+  error?: string
+}
+
+export interface WorkflowStatus {
+  jobId: string
+  type: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  startTime: number
+  result?: WorkflowResult
+}
+
+export interface QueueStats {
+  pending: number
+  active: number
+  completed: number
+  failed: number
+}
+
+export interface ScheduledJob {
+  id: string
+  name: string
+  type: string
+  schedule: string
+  enabled: boolean
+  lastRun?: Date
+  nextRun: Date
+}
+
+export interface HealthStatus {
+  status: 'healthy' | 'degraded' | 'unhealthy'
+  timestamp: number
+  services: {
+    database: 'connected' | 'disconnected' | 'error'
+    queue: 'running' | 'stopped' | 'error'
+    scheduler: 'running' | 'stopped' | 'error'
+  }
+}
 
 declare global {
   interface Window {
@@ -29,7 +71,11 @@ declare global {
         delete: (id: number) => Promise<{ success: boolean }>
       }
       vector: {
-        search: (queryEmbedding: number[], limit?: number, source?: string) => Promise<VectorSearchResultDto[]>
+        search: (
+          queryEmbedding: number[],
+          limit?: number,
+          source?: string
+        ) => Promise<VectorSearchResultDto[]>
       }
       workflows: {
         list: () => Promise<string[]>
@@ -44,6 +90,11 @@ declare global {
       }
       health: {
         check: () => Promise<any>
+      }
+      config: {
+        get: (key: string) => Promise<string | null>
+        set: (key: string, value: string, description?: string) => Promise<{ success: boolean }>
+        delete: (key: string) => Promise<{ success: boolean }>
       }
     }
   }

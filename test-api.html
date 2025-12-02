@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>API Test</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    .success { color: green; }
+    .error { color: red; }
+    .info { color: blue; }
+    pre { background: #f0f0f0; padding: 10px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <h1>ai-trend-publish API Test</h1>
+  <div id="results"></div>
+
+  <script>
+    async function runTests() {
+      const results = document.getElementById('results')
+
+      // Test 1: API Available
+      results.innerHTML += '<h2 class="info">Test 1: API Availability</h2>'
+      const apiAvailable = !!window.aiTrendPublish
+      results.innerHTML += `<p class="${apiAvailable ? 'success' : 'error'}">Window.aiTrendPublish: ${apiAvailable}</p>`
+
+      if (apiAvailable) {
+        // Test 2: Templates
+        results.innerHTML += '<h2 class="info">Test 2: Templates API</h2>'
+        try {
+          const templates = await window.aiTrendPublish.templates.list()
+          results.innerHTML += `<p class="success">Templates loaded: ${templates.length} items</p>`
+          results.innerHTML += `<pre>${JSON.stringify(templates, null, 2)}</pre>`
+        } catch (error) {
+          results.innerHTML += `<p class="error">Error: ${error.message}</p>`
+        }
+
+        // Test 3: Data Sources
+        results.innerHTML += '<h2 class="info">Test 3: Data Sources API</h2>'
+        try {
+          const dataSources = await window.aiTrendPublish.dataSources.list()
+          results.innerHTML += `<p class="success">Data Sources loaded: ${dataSources.length} items</p>`
+          results.innerHTML += `<pre>${JSON.stringify(dataSources, null, 2)}</pre>`
+        } catch (error) {
+          results.innerHTML += `<p class="error">Error: ${error.message}</p>`
+        }
+
+        // Test 4: Workflow Executions
+        results.innerHTML += '<h2 class="info">Test 4: Workflow Executions API</h2>'
+        try {
+          const executions = await window.aiTrendPublish.workflowExecutions.list()
+          results.innerHTML += `<p class="success">Workflow Executions loaded: ${executions.length} items</p>`
+          results.innerHTML += `<pre>${JSON.stringify(executions, null, 2)}</pre>`
+        } catch (error) {
+          results.innerHTML += `<p class="error">Error: ${error.message}</p>`
+        }
+
+        // Test 5: Health Check
+        results.innerHTML += '<h2 class="info">Test 5: Health Check</h2>'
+        try {
+          const health = await window.aiTrendPublish.health.check()
+          results.innerHTML += `<p class="success">Health Status: ${health.status}</p>`
+          results.innerHTML += `<pre>${JSON.stringify(health, null, 2)}</pre>`
+        } catch (error) {
+          results.innerHTML += `<p class="error">Error: ${error.message}</p>`
+        }
+      } else {
+        results.innerHTML += '<p class="error">API not available - are you running in Electron?</p>'
+      }
+    }
+
+    runTests()
+  </script>
+</body>
+</html>

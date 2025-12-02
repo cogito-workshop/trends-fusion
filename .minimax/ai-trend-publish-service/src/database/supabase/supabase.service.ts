@@ -2,7 +2,7 @@
 // Supabase Database Service Implementation
 // ============================================================================
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type {
   DatabaseService,
   ConfigDto,
@@ -22,28 +22,28 @@ import type {
   UpdateTemplateCategoryDto,
   UpdateTemplateDto,
   UpdateDataSourceDto,
-} from '../interfaces/dto.js'
+} from '../interfaces/dto.js';
 
 interface SupabaseConfig {
-  url: string
-  key: string
+  url: string;
+  key: string;
 }
 
 export class SupabaseService implements DatabaseService {
-  private client: SupabaseClient
-  private config: SupabaseConfig
+  private client: SupabaseClient;
+  private config: SupabaseConfig;
 
   constructor(config?: SupabaseConfig) {
     this.config = config || {
       url: process.env.SUPABASE_URL || '',
       key: process.env.SUPABASE_KEY || '',
-    }
+    };
 
     if (!this.config.url || !this.config.key) {
-      throw new Error('Supabase URL and key are required')
+      throw new Error('Supabase URL and key are required');
     }
 
-    this.client = createClient(this.config.url, this.config.key)
+    this.client = createClient(this.config.url, this.config.key);
   }
 
   // ============================================================================
@@ -55,41 +55,36 @@ export class SupabaseService implements DatabaseService {
       .from('config')
       .select('value')
       .eq('key', key)
-      .single()
+      .single();
 
     if (error) {
       if (error.code === 'PGRST116') {
-        return null // No rows returned
+        return null; // No rows returned
       }
-      throw error
+      throw error;
     }
 
-    return data?.value || null
+    return data?.value || null;
   }
 
   async setConfig(key: string, value: string, description?: string): Promise<void> {
-    const { error } = await this.client
-      .from('config')
-      .upsert({
-        key,
-        value,
-        description: description || null,
-        updated_at: new Date().toISOString(),
-      })
+    const { error } = await this.client.from('config').upsert({
+      key,
+      value,
+      description: description || null,
+      updated_at: new Date().toISOString(),
+    });
 
     if (error) {
-      throw error
+      throw error;
     }
   }
 
   async deleteConfig(key: string): Promise<void> {
-    const { error } = await this.client
-      .from('config')
-      .delete()
-      .eq('key', key)
+    const { error } = await this.client.from('config').delete().eq('key', key);
 
     if (error) {
-      throw error
+      throw error;
     }
   }
 
@@ -98,16 +93,13 @@ export class SupabaseService implements DatabaseService {
   // ============================================================================
 
   async getTemplateCategories(): Promise<TemplateCategoryDto[]> {
-    const { data, error } = await this.client
-      .from('template_categories')
-      .select('*')
-      .order('name')
+    const { data, error } = await this.client.from('template_categories').select('*').order('name');
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    return data?.map(this.mapTemplateCategory) || []
+    return data?.map(this.mapTemplateCategory) || [];
   }
 
   async createTemplateCategory(category: CreateTemplateCategoryDto): Promise<TemplateCategoryDto> {
@@ -118,38 +110,38 @@ export class SupabaseService implements DatabaseService {
         description: category.description || null,
       })
       .select()
-      .single()
+      .single();
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    return this.mapTemplateCategory(data)
+    return this.mapTemplateCategory(data);
   }
 
-  async updateTemplateCategory(id: number, updates: UpdateTemplateCategoryDto): Promise<TemplateCategoryDto> {
+  async updateTemplateCategory(
+    id: number,
+    updates: UpdateTemplateCategoryDto
+  ): Promise<TemplateCategoryDto> {
     const { data, error } = await this.client
       .from('template_categories')
       .update(updates)
       .eq('id', id)
       .select()
-      .single()
+      .single();
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    return this.mapTemplateCategory(data)
+    return this.mapTemplateCategory(data);
   }
 
   async deleteTemplateCategory(id: number): Promise<void> {
-    const { error } = await this.client
-      .from('template_categories')
-      .delete()
-      .eq('id', id)
+    const { error } = await this.client.from('template_categories').delete().eq('id', id);
 
     if (error) {
-      throw error
+      throw error;
     }
   }
 
@@ -162,36 +154,32 @@ export class SupabaseService implements DatabaseService {
       .from('templates')
       .select('*')
       .eq('is_active', isActive)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false });
 
     if (platform) {
-      query = query.eq('platform', platform)
+      query = query.eq('platform', platform);
     }
 
-    const { data, error } = await query
+    const { data, error } = await query;
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    return data?.map(this.mapTemplate) || []
+    return data?.map(this.mapTemplate) || [];
   }
 
   async getTemplateById(id: number): Promise<TemplateDto | null> {
-    const { data, error } = await this.client
-      .from('templates')
-      .select('*')
-      .eq('id', id)
-      .single()
+    const { data, error } = await this.client.from('templates').select('*').eq('id', id).single();
 
     if (error) {
       if (error.code === 'PGRST116') {
-        return null
+        return null;
       }
-      throw error
+      throw error;
     }
 
-    return data ? this.mapTemplate(data) : null
+    return data ? this.mapTemplate(data) : null;
   }
 
   async createTemplate(template: CreateTemplateDto): Promise<TemplateDto> {
@@ -207,13 +195,13 @@ export class SupabaseService implements DatabaseService {
         is_active: template.isActive !== undefined ? template.isActive : true,
       })
       .select()
-      .single()
+      .single();
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    return this.mapTemplate(data)
+    return this.mapTemplate(data);
   }
 
   async updateTemplate(id: number, updates: UpdateTemplateDto): Promise<TemplateDto> {
@@ -225,23 +213,20 @@ export class SupabaseService implements DatabaseService {
       })
       .eq('id', id)
       .select()
-      .single()
+      .single();
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    return this.mapTemplate(data)
+    return this.mapTemplate(data);
   }
 
   async deleteTemplate(id: number): Promise<void> {
-    const { error } = await this.client
-      .from('templates')
-      .delete()
-      .eq('id', id)
+    const { error } = await this.client.from('templates').delete().eq('id', id);
 
     if (error) {
-      throw error
+      throw error;
     }
   }
 
@@ -254,13 +239,13 @@ export class SupabaseService implements DatabaseService {
       .from('template_versions')
       .select('*')
       .eq('template_id', templateId)
-      .order('version', { ascending: false })
+      .order('version', { ascending: false });
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    return data?.map(this.mapTemplateVersion) || []
+    return data?.map(this.mapTemplateVersion) || [];
   }
 
   async createTemplateVersion(version: CreateTemplateVersionDto): Promise<TemplateVersionDto> {
@@ -273,13 +258,13 @@ export class SupabaseService implements DatabaseService {
         changelog: version.changelog || null,
       })
       .select()
-      .single()
+      .single();
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    return this.mapTemplateVersion(data)
+    return this.mapTemplateVersion(data);
   }
 
   async getLatestTemplateVersion(templateId: number): Promise<TemplateVersionDto | null> {
@@ -289,16 +274,16 @@ export class SupabaseService implements DatabaseService {
       .eq('template_id', templateId)
       .order('version', { ascending: false })
       .limit(1)
-      .single()
+      .single();
 
     if (error) {
       if (error.code === 'PGRST116') {
-        return null
+        return null;
       }
-      throw error
+      throw error;
     }
 
-    return data ? this.mapTemplateVersion(data) : null
+    return data ? this.mapTemplateVersion(data) : null;
   }
 
   // ============================================================================
@@ -310,19 +295,19 @@ export class SupabaseService implements DatabaseService {
       .from('data_sources')
       .select('*')
       .eq('is_active', isActive)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false });
 
     if (type) {
-      query = query.eq('type', type)
+      query = query.eq('type', type);
     }
 
-    const { data, error } = await query
+    const { data, error } = await query;
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    return data?.map(this.mapDataSource) || []
+    return data?.map(this.mapDataSource) || [];
   }
 
   async getDataSourceById(id: number): Promise<DataSourceDto | null> {
@@ -330,16 +315,16 @@ export class SupabaseService implements DatabaseService {
       .from('data_sources')
       .select('*')
       .eq('id', id)
-      .single()
+      .single();
 
     if (error) {
       if (error.code === 'PGRST116') {
-        return null
+        return null;
       }
-      throw error
+      throw error;
     }
 
-    return data ? this.mapDataSource(data) : null
+    return data ? this.mapDataSource(data) : null;
   }
 
   async getDataSourceByName(name: string): Promise<DataSourceDto | null> {
@@ -347,16 +332,16 @@ export class SupabaseService implements DatabaseService {
       .from('data_sources')
       .select('*')
       .eq('name', name)
-      .single()
+      .single();
 
     if (error) {
       if (error.code === 'PGRST116') {
-        return null
+        return null;
       }
-      throw error
+      throw error;
     }
 
-    return data ? this.mapDataSource(data) : null
+    return data ? this.mapDataSource(data) : null;
   }
 
   async createDataSource(source: CreateDataSourceDto): Promise<DataSourceDto> {
@@ -369,13 +354,13 @@ export class SupabaseService implements DatabaseService {
         is_active: source.isActive !== undefined ? source.isActive : true,
       })
       .select()
-      .single()
+      .single();
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    return this.mapDataSource(data)
+    return this.mapDataSource(data);
   }
 
   async updateDataSource(id: number, updates: UpdateDataSourceDto): Promise<DataSourceDto> {
@@ -387,23 +372,20 @@ export class SupabaseService implements DatabaseService {
       })
       .eq('id', id)
       .select()
-      .single()
+      .single();
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    return this.mapDataSource(data)
+    return this.mapDataSource(data);
   }
 
   async deleteDataSource(id: number): Promise<void> {
-    const { error } = await this.client
-      .from('data_sources')
-      .delete()
-      .eq('id', id)
+    const { error } = await this.client.from('data_sources').delete().eq('id', id);
 
     if (error) {
-      throw error
+      throw error;
     }
   }
 
@@ -422,13 +404,13 @@ export class SupabaseService implements DatabaseService {
         source_id: item.sourceId || null,
       })
       .select('id')
-      .single()
+      .single();
 
     if (error) {
-      throw error
+      throw error;
     }
 
-    return data.id
+    return data.id;
   }
 
   async searchVectors(
@@ -438,29 +420,31 @@ export class SupabaseService implements DatabaseService {
   ): Promise<VectorSearchResultDto[]> {
     // Supabase with pgvector enables vector similarity search
     // Note: Requires pgvector extension to be enabled
-    let query = this.client.rpc('search_vectors', {
+    const query = this.client.rpc('search_vectors', {
       query_embedding: queryEmbedding,
       match_count: limit,
       match_source: source || null,
-    })
+    });
 
-    const { data, error } = await query
+    const { data, error } = await query;
 
     if (error) {
       // Fallback to basic search if vector search function doesn't exist
-      console.warn('Vector search not available, falling back to basic search:', error.message)
-      return this.fallbackVectorSearch(queryEmbedding, limit, source)
+      console.warn('Vector search not available, falling back to basic search:', error.message);
+      return this.fallbackVectorSearch(queryEmbedding, limit, source);
     }
 
-    return data?.map((row: any) => ({
-      id: row.id,
-      content: row.content,
-      metadata: row.metadata,
-      source: row.source,
-      sourceId: row.source_id,
-      similarity: row.similarity,
-      createdAt: row.created_at ? new Date(row.created_at) : undefined,
-    })) || []
+    return (
+      data?.map((row: any) => ({
+        id: row.id,
+        content: row.content,
+        metadata: row.metadata,
+        source: row.source,
+        sourceId: row.source_id,
+        similarity: row.similarity,
+        createdAt: row.created_at ? new Date(row.created_at) : undefined,
+      })) || []
+    );
   }
 
   private async fallbackVectorSearch(
@@ -472,28 +456,30 @@ export class SupabaseService implements DatabaseService {
       .from('vector_items')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(limit)
+      .limit(limit);
 
     if (source) {
-      query = query.eq('source', source)
+      query = query.eq('source', source);
     }
 
-    const { data, error } = await query
+    const { data, error } = await query;
 
     if (error) {
-      throw error
+      throw error;
     }
 
     // Return items without similarity scores for fallback
-    return data?.map(row => ({
-      id: row.id,
-      content: row.content,
-      metadata: row.metadata,
-      source: row.source,
-      sourceId: row.source_id,
-      similarity: 0.0,
-      createdAt: row.created_at ? new Date(row.created_at) : undefined,
-    })) || []
+    return (
+      data?.map((row) => ({
+        id: row.id,
+        content: row.content,
+        metadata: row.metadata,
+        source: row.source,
+        sourceId: row.source_id,
+        similarity: 0.0,
+        createdAt: row.created_at ? new Date(row.created_at) : undefined,
+      })) || []
+    );
   }
 
   // ============================================================================
@@ -502,21 +488,18 @@ export class SupabaseService implements DatabaseService {
 
   async ping(): Promise<boolean> {
     try {
-      const { error } = await this.client
-        .from('config')
-        .select('key')
-        .limit(1)
+      const { error } = await this.client.from('config').select('key').limit(1);
 
-      return !error
+      return !error;
     } catch (error) {
-      return false
+      return false;
     }
   }
 
   async close(): Promise<void> {
     // Supabase client doesn't need explicit closing
     // but we can clear the auth session
-    await this.client.auth.signOut()
+    await this.client.auth.signOut();
   }
 
   // ============================================================================
@@ -529,7 +512,7 @@ export class SupabaseService implements DatabaseService {
       name: row.name,
       description: row.description,
       createdAt: row.created_at ? new Date(row.created_at) : undefined,
-    }
+    };
   }
 
   private mapTemplate(row: any): TemplateDto {
@@ -544,7 +527,7 @@ export class SupabaseService implements DatabaseService {
       isActive: row.is_active,
       createdAt: row.created_at ? new Date(row.created_at) : undefined,
       updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
-    }
+    };
   }
 
   private mapTemplateVersion(row: any): TemplateVersionDto {
@@ -555,7 +538,7 @@ export class SupabaseService implements DatabaseService {
       content: row.content,
       changelog: row.changelog,
       createdAt: row.created_at ? new Date(row.created_at) : undefined,
-    }
+    };
   }
 
   private mapDataSource(row: any): DataSourceDto {
@@ -568,6 +551,6 @@ export class SupabaseService implements DatabaseService {
       lastSyncAt: row.last_sync_at ? new Date(row.last_sync_at) : undefined,
       createdAt: row.created_at ? new Date(row.created_at) : undefined,
       updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
-    }
+    };
   }
 }

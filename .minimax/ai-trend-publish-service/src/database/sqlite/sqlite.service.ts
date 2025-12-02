@@ -2,10 +2,10 @@
 // SQLite Database Service Implementation
 // ============================================================================
 
-import Database from 'better-sqlite3'
-import { createRequire } from 'module'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
+import Database from 'better-sqlite3';
+import { createRequire } from 'module';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import type {
   DatabaseService,
   ConfigDto,
@@ -25,26 +25,26 @@ import type {
   UpdateTemplateCategoryDto,
   UpdateTemplateDto,
   UpdateDataSourceDto,
-} from '../interfaces/dto.js'
+} from '../interfaces/dto.js';
 
-const require = createRequire(import.meta.url)
+const require = createRequire(import.meta.url);
 
 export class SQLiteService implements DatabaseService {
-  private db: Database.Database
-  private dbPath: string
+  private db: Database.Database;
+  private dbPath: string;
 
   constructor(dbPath?: string) {
-    this.dbPath = dbPath || process.env.SQLITE_PATH || './data/trends-fusion.db'
-    this.db = new Database(this.dbPath)
-    this.db.pragma('journal_mode = WAL')
-    this.initSchema()
+    this.dbPath = dbPath || process.env.SQLITE_PATH || './data/trends-fusion.db';
+    this.db = new Database(this.dbPath);
+    this.db.pragma('journal_mode = WAL');
+    this.initSchema();
   }
 
   private initSchema(): void {
-    const __dirname = dirname(fileURLToPath(import.meta.url))
-    const schemaPath = join(__dirname, 'schema.sql')
-    const schema = require('fs').readFileSync(schemaPath, 'utf8')
-    this.db.exec(schema)
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const schemaPath = join(__dirname, 'schema.sql');
+    const schema = require('fs').readFileSync(schemaPath, 'utf8');
+    this.db.exec(schema);
   }
 
   // ============================================================================
@@ -52,9 +52,9 @@ export class SQLiteService implements DatabaseService {
   // ============================================================================
 
   async getConfig(key: string): Promise<string | null> {
-    const stmt = this.db.prepare('SELECT value FROM config WHERE key = ?')
-    const result = stmt.get(key) as { value: string } | undefined
-    return result?.value || null
+    const stmt = this.db.prepare('SELECT value FROM config WHERE key = ?');
+    const result = stmt.get(key) as { value: string } | undefined;
+    return result?.value || null;
   }
 
   async setConfig(key: string, value: string, description?: string): Promise<void> {
@@ -64,13 +64,13 @@ export class SQLiteService implements DatabaseService {
       ON CONFLICT(key) DO UPDATE SET
         value = excluded.value,
         updated_at = CURRENT_TIMESTAMP
-    `)
-    stmt.run(key, value, description || null)
+    `);
+    stmt.run(key, value, description || null);
   }
 
   async deleteConfig(key: string): Promise<void> {
-    const stmt = this.db.prepare('DELETE FROM config WHERE key = ?')
-    stmt.run(key)
+    const stmt = this.db.prepare('DELETE FROM config WHERE key = ?');
+    stmt.run(key);
   }
 
   // ============================================================================
@@ -78,58 +78,61 @@ export class SQLiteService implements DatabaseService {
   // ============================================================================
 
   async getTemplateCategories(): Promise<TemplateCategoryDto[]> {
-    const stmt = this.db.prepare('SELECT * FROM template_categories ORDER BY name')
-    const rows = stmt.all()
-    return rows.map(this.mapTemplateCategory)
+    const stmt = this.db.prepare('SELECT * FROM template_categories ORDER BY name');
+    const rows = stmt.all();
+    return rows.map(this.mapTemplateCategory);
   }
 
   async createTemplateCategory(category: CreateTemplateCategoryDto): Promise<TemplateCategoryDto> {
     const stmt = this.db.prepare(`
       INSERT INTO template_categories (name, description)
       VALUES (?, ?)
-    `)
-    const result = stmt.run(category.name, category.description || null)
-    return this.getTemplateCategoryById(result.lastInsertRowid as number)
+    `);
+    const result = stmt.run(category.name, category.description || null);
+    return this.getTemplateCategoryById(result.lastInsertRowid as number);
   }
 
   private async getTemplateCategoryById(id: number): Promise<TemplateCategoryDto> {
-    const stmt = this.db.prepare('SELECT * FROM template_categories WHERE id = ?')
-    const row = stmt.get(id)
+    const stmt = this.db.prepare('SELECT * FROM template_categories WHERE id = ?');
+    const row = stmt.get(id);
     if (!row) {
-      throw new Error(`Template category with id ${id} not found`)
+      throw new Error(`Template category with id ${id} not found`);
     }
-    return this.mapTemplateCategory(row)
+    return this.mapTemplateCategory(row);
   }
 
-  async updateTemplateCategory(id: number, updates: UpdateTemplateCategoryDto): Promise<TemplateCategoryDto> {
-    const fields: string[] = []
-    const values: unknown[] = []
+  async updateTemplateCategory(
+    id: number,
+    updates: UpdateTemplateCategoryDto
+  ): Promise<TemplateCategoryDto> {
+    const fields: string[] = [];
+    const values: unknown[] = [];
 
     if (updates.name !== undefined) {
-      fields.push('name = ?')
-      values.push(updates.name)
+      fields.push('name = ?');
+      values.push(updates.name);
     }
     if (updates.description !== undefined) {
-      fields.push('description = ?')
-      values.push(updates.description)
+      fields.push('description = ?');
+      values.push(updates.description);
     }
 
     if (fields.length === 0) {
-      return this.getTemplateCategoryById(id)
+      return this.getTemplateCategoryById(id);
     }
 
     const stmt = this.db.prepare(`
       UPDATE template_categories
       SET ${fields.join(', ')}
       WHERE id = ?
-    `)
-    stmt.run(...values, id)
-    return this.getTemplateCategoryById(id)
+    `);
+    stmt.run(...values, id);
+    return this.getTemplateCategoryById(id);
   }
 
   async deleteTemplateCategory(id: number): Promise<void> {
-    const stmt = this.db.prepare('DELETE FROM template_categories WHERE id = ?')
-    stmt.run(id)
+    const stmt = this.db.prepare('DELETE FROM template_categories WHERE id = ?');
+    stmt.run(id);
   }
 
   // ============================================================================
@@ -137,34 +140,34 @@ export class SQLiteService implements DatabaseService {
   // ============================================================================
 
   async getTemplates(platform?: string, isActive = true): Promise<TemplateDto[]> {
-    let query = 'SELECT * FROM templates WHERE 1=1'
-    const params: unknown[] = []
+    let query = 'SELECT * FROM templates WHERE 1=1';
+    const params: unknown[] = [];
 
     if (platform) {
-      query += ' AND platform = ?'
-      params.push(platform)
+      query += ' AND platform = ?';
+      params.push(platform);
     }
-    query += ' AND is_active = ?'
-    params.push(isActive ? 1 : 0)
+    query += ' AND is_active = ?';
+    params.push(isActive ? 1 : 0);
 
-    query += ' ORDER BY created_at DESC'
+    query += ' ORDER BY created_at DESC';
 
-    const stmt = this.db.prepare(query)
-    const rows = stmt.all(...params)
-    return rows.map(this.mapTemplate)
+    const stmt = this.db.prepare(query);
+    const rows = stmt.all(...params);
+    return rows.map(this.mapTemplate);
   }
 
   async getTemplateById(id: number): Promise<TemplateDto | null> {
-    const stmt = this.db.prepare('SELECT * FROM templates WHERE id = ?')
-    const row = stmt.get(id)
-    return row ? this.mapTemplate(row) : null
+    const stmt = this.db.prepare('SELECT * FROM templates WHERE id = ?');
+    const row = stmt.get(id);
+    return row ? this.mapTemplate(row) : null;
   }
 
   async createTemplate(template: CreateTemplateDto): Promise<TemplateDto> {
     const stmt = this.db.prepare(`
       INSERT INTO templates (name, platform, style, content, category_id, version, is_active)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `)
+    `);
     const result = stmt.run(
       template.name,
       template.platform,
@@ -173,59 +176,59 @@ export class SQLiteService implements DatabaseService {
       template.categoryId || null,
       template.version || 1,
       template.isActive !== undefined ? (template.isActive ? 1 : 0) : 1
-    )
-    return this.getTemplateById(result.lastInsertRowid as number) as Promise<TemplateDto>
+    );
+    return this.getTemplateById(result.lastInsertRowid as number) as Promise<TemplateDto>;
   }
 
   async updateTemplate(id: number, updates: UpdateTemplateDto): Promise<TemplateDto> {
-    const fields: string[] = []
-    const values: unknown[] = []
+    const fields: string[] = [];
+    const values: unknown[] = [];
 
     if (updates.name !== undefined) {
-      fields.push('name = ?')
-      values.push(updates.name)
+      fields.push('name = ?');
+      values.push(updates.name);
     }
     if (updates.platform !== undefined) {
-      fields.push('platform = ?')
-      values.push(updates.platform)
+      fields.push('platform = ?');
+      values.push(updates.platform);
     }
     if (updates.style !== undefined) {
-      fields.push('style = ?')
-      values.push(updates.style)
+      fields.push('style = ?');
+      values.push(updates.style);
     }
     if (updates.content !== undefined) {
-      fields.push('content = ?')
-      values.push(updates.content)
+      fields.push('content = ?');
+      values.push(updates.content);
     }
     if (updates.categoryId !== undefined) {
-      fields.push('category_id = ?')
-      values.push(updates.categoryId)
+      fields.push('category_id = ?');
+      values.push(updates.categoryId);
     }
     if (updates.version !== undefined) {
-      fields.push('version = ?')
-      values.push(updates.version)
+      fields.push('version = ?');
+      values.push(updates.version);
     }
     if (updates.isActive !== undefined) {
-      fields.push('is_active = ?')
-      values.push(updates.isActive ? 1 : 0)
+      fields.push('is_active = ?');
+      values.push(updates.isActive ? 1 : 0);
     }
 
     if (fields.length === 0) {
-      return this.getTemplateById(id) as Promise<TemplateDto>
+      return this.getTemplateById(id) as Promise<TemplateDto>;
     }
 
     const stmt = this.db.prepare(`
       UPDATE templates
       SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `)
-    stmt.run(...values, id)
-    return this.getTemplateById(id) as Promise<TemplateDto>
+    `);
+    stmt.run(...values, id);
+    return this.getTemplateById(id) as Promise<TemplateDto>;
   }
 
   async deleteTemplate(id: number): Promise<void> {
-    const stmt = this.db.prepare('DELETE FROM templates WHERE id = ?')
-    stmt.run(id)
+    const stmt = this.db.prepare('DELETE FROM templates WHERE id = ?');
+    stmt.run(id);
   }
 
   // ============================================================================
@@ -233,32 +236,34 @@ export class SQLiteService implements DatabaseService {
   // ============================================================================
 
   async getTemplateVersions(templateId: number): Promise<TemplateVersionDto[]> {
-    const stmt = this.db.prepare('SELECT * FROM template_versions WHERE template_id = ? ORDER BY version DESC')
-    const rows = stmt.all(templateId)
-    return rows.map(this.mapTemplateVersion)
+    const stmt = this.db.prepare(
+      'SELECT * FROM template_versions WHERE template_id = ? ORDER BY version DESC'
+    );
+    const rows = stmt.all(templateId);
+    return rows.map(this.mapTemplateVersion);
   }
 
   async createTemplateVersion(version: CreateTemplateVersionDto): Promise<TemplateVersionDto> {
     const stmt = this.db.prepare(`
       INSERT INTO template_versions (template_id, version, content, changelog)
       VALUES (?, ?, ?, ?)
-    `)
+    `);
     const result = stmt.run(
       version.templateId,
       version.version,
       version.content,
       version.changelog || null
-    )
-    return this.getTemplateVersionById(result.lastInsertRowid as number)
+    );
+    return this.getTemplateVersionById(result.lastInsertRowid as number);
   }
 
   private async getTemplateVersionById(id: number): Promise<TemplateVersionDto> {
-    const stmt = this.db.prepare('SELECT * FROM template_versions WHERE id = ?')
-    const row = stmt.get(id)
+    const stmt = this.db.prepare('SELECT * FROM template_versions WHERE id = ?');
+    const row = stmt.get(id);
     if (!row) {
-      throw new Error(`Template version with id ${id} not found`)
+      throw new Error(`Template version with id ${id} not found`);
     }
-    return this.mapTemplateVersion(row)
+    return this.mapTemplateVersion(row);
   }
 
   async getLatestTemplateVersion(templateId: number): Promise<TemplateVersionDto | null> {
@@ -267,9 +272,9 @@ export class SQLiteService implements DatabaseService {
       WHERE template_id = ?
       ORDER BY version DESC
       LIMIT 1
-    `)
-    const row = stmt.get(templateId)
-    return row ? this.mapTemplateVersion(row) : null
+    `);
+    const row = stmt.get(templateId);
+    return row ? this.mapTemplateVersion(row) : null;
   }
 
   // ============================================================================
@@ -277,90 +282,90 @@ export class SQLiteService implements DatabaseService {
   // ============================================================================
 
   async getDataSources(type?: string, isActive = true): Promise<DataSourceDto[]> {
-    let query = 'SELECT * FROM data_sources WHERE 1=1'
-    const params: unknown[] = []
+    let query = 'SELECT * FROM data_sources WHERE 1=1';
+    const params: unknown[] = [];
 
     if (type) {
-      query += ' AND type = ?'
-      params.push(type)
+      query += ' AND type = ?';
+      params.push(type);
     }
-    query += ' AND is_active = ?'
-    params.push(isActive ? 1 : 0)
+    query += ' AND is_active = ?';
+    params.push(isActive ? 1 : 0);
 
-    query += ' ORDER BY created_at DESC'
+    query += ' ORDER BY created_at DESC';
 
-    const stmt = this.db.prepare(query)
-    const rows = stmt.all(...params)
-    return rows.map(this.mapDataSource)
+    const stmt = this.db.prepare(query);
+    const rows = stmt.all(...params);
+    return rows.map(this.mapDataSource);
   }
 
   async getDataSourceById(id: number): Promise<DataSourceDto | null> {
-    const stmt = this.db.prepare('SELECT * FROM data_sources WHERE id = ?')
-    const row = stmt.get(id)
-    return row ? this.mapDataSource(row) : null
+    const stmt = this.db.prepare('SELECT * FROM data_sources WHERE id = ?');
+    const row = stmt.get(id);
+    return row ? this.mapDataSource(row) : null;
   }
 
   async getDataSourceByName(name: string): Promise<DataSourceDto | null> {
-    const stmt = this.db.prepare('SELECT * FROM data_sources WHERE name = ?')
-    const row = stmt.get(name)
-    return row ? this.mapDataSource(row) : null
+    const stmt = this.db.prepare('SELECT * FROM data_sources WHERE name = ?');
+    const row = stmt.get(name);
+    return row ? this.mapDataSource(row) : null;
   }
 
   async createDataSource(source: CreateDataSourceDto): Promise<DataSourceDto> {
     const stmt = this.db.prepare(`
       INSERT INTO data_sources (name, type, config, is_active)
       VALUES (?, ?, ?, ?)
-    `)
+    `);
     const result = stmt.run(
       source.name,
       source.type,
       JSON.stringify(source.config),
       source.isActive !== undefined ? (source.isActive ? 1 : 0) : 1
-    )
-    return this.getDataSourceById(result.lastInsertRowid as number) as Promise<DataSourceDto>
+    );
+    return this.getDataSourceById(result.lastInsertRowid as number) as Promise<DataSourceDto>;
   }
 
   async updateDataSource(id: number, updates: UpdateDataSourceDto): Promise<DataSourceDto> {
-    const fields: string[] = []
-    const values: unknown[] = []
+    const fields: string[] = [];
+    const values: unknown[] = [];
 
     if (updates.name !== undefined) {
-      fields.push('name = ?')
-      values.push(updates.name)
+      fields.push('name = ?');
+      values.push(updates.name);
     }
     if (updates.type !== undefined) {
-      fields.push('type = ?')
-      values.push(updates.type)
+      fields.push('type = ?');
+      values.push(updates.type);
     }
     if (updates.config !== undefined) {
-      fields.push('config = ?')
-      values.push(JSON.stringify(updates.config))
+      fields.push('config = ?');
+      values.push(JSON.stringify(updates.config));
     }
     if (updates.isActive !== undefined) {
-      fields.push('is_active = ?')
-      values.push(updates.isActive ? 1 : 0)
+      fields.push('is_active = ?');
+      values.push(updates.isActive ? 1 : 0);
     }
     if (updates.lastSyncAt !== undefined) {
-      fields.push('last_sync_at = ?')
-      values.push(updates.lastSyncAt.toISOString())
+      fields.push('last_sync_at = ?');
+      values.push(updates.lastSyncAt.toISOString());
     }
 
     if (fields.length === 0) {
-      return this.getDataSourceById(id) as Promise<DataSourceDto>
+      return this.getDataSourceById(id) as Promise<DataSourceDto>;
     }
 
     const stmt = this.db.prepare(`
       UPDATE data_sources
       SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `)
-    stmt.run(...values, id)
-    return this.getDataSourceById(id) as Promise<DataSourceDto>
+    `);
+    stmt.run(...values, id);
+    return this.getDataSourceById(id) as Promise<DataSourceDto>;
   }
 
   async deleteDataSource(id: number): Promise<void> {
-    const stmt = this.db.prepare('DELETE FROM data_sources WHERE id = ?')
-    stmt.run(id)
+    const stmt = this.db.prepare('DELETE FROM data_sources WHERE id = ?');
+    stmt.run(id);
   }
 
   // ============================================================================
@@ -371,16 +376,18 @@ export class SQLiteService implements DatabaseService {
     const stmt = this.db.prepare(`
       INSERT INTO vector_items (content, metadata, embedding, source, source_id)
       VALUES (?, ?, ?, ?, ?)
-    `)
-    const embeddingBlob = item.embedding ? Buffer.from(new Float32Array(item.embedding).buffer) : null
+    `);
+    const embeddingBlob = item.embedding
+      ? Buffer.from(new Float32Array(item.embedding).buffer)
+      : null;
     const result = stmt.run(
       item.content,
       item.metadata ? JSON.stringify(item.metadata) : null,
       embeddingBlob,
       item.source || null,
       item.sourceId || null
-    )
-    return result.lastInsertRowid as number
+    );
+    return result.lastInsertRowid as number;
   }
 
   async searchVectors(
@@ -390,23 +397,23 @@ export class SQLiteService implements DatabaseService {
   ): Promise<VectorSearchResultDto[]> {
     // SQLite doesn't have native vector search, so we'll do a simple implementation
     // For production, consider using SQLite extensions or a dedicated vector database
-    let query = 'SELECT * FROM vector_items WHERE 1=1'
-    const params: unknown[] = []
+    let query = 'SELECT * FROM vector_items WHERE 1=1';
+    const params: unknown[] = [];
 
     if (source) {
-      query += ' AND source = ?'
-      params.push(source)
+      query += ' AND source = ?';
+      params.push(source);
     }
 
-    query += ' ORDER BY created_at DESC LIMIT ?'
-    params.push(limit)
+    query += ' ORDER BY created_at DESC LIMIT ?';
+    params.push(limit);
 
-    const stmt = this.db.prepare(query)
-    const rows = stmt.all(...params)
+    const stmt = this.db.prepare(query);
+    const rows = stmt.all(...params);
 
     // For now, return items without similarity scores
     // TODO: Implement proper vector similarity search
-    return rows.map(row => ({
+    return rows.map((row) => ({
       id: row.id,
       content: row.content,
       metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
@@ -414,7 +421,7 @@ export class SQLiteService implements DatabaseService {
       sourceId: row.source_id,
       similarity: 0.0,
       createdAt: row.created_at ? new Date(row.created_at) : undefined,
-    }))
+    }));
   }
 
   // ============================================================================
@@ -423,16 +430,16 @@ export class SQLiteService implements DatabaseService {
 
   async ping(): Promise<boolean> {
     try {
-      const stmt = this.db.prepare('SELECT 1')
-      stmt.get()
-      return true
+      const stmt = this.db.prepare('SELECT 1');
+      stmt.get();
+      return true;
     } catch (error) {
-      return false
+      return false;
     }
   }
 
   async close(): Promise<void> {
-    this.db.close()
+    this.db.close();
   }
 
   // ============================================================================
@@ -445,7 +452,7 @@ export class SQLiteService implements DatabaseService {
       name: row.name,
       description: row.description,
       createdAt: row.created_at ? new Date(row.created_at) : undefined,
-    }
+    };
   }
 
   private mapTemplate(row: any): TemplateDto {
@@ -460,7 +467,7 @@ export class SQLiteService implements DatabaseService {
       isActive: Boolean(row.is_active),
       createdAt: row.created_at ? new Date(row.created_at) : undefined,
       updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
-    }
+    };
   }
 
   private mapTemplateVersion(row: any): TemplateVersionDto {
@@ -471,7 +478,7 @@ export class SQLiteService implements DatabaseService {
       content: row.content,
       changelog: row.changelog,
       createdAt: row.created_at ? new Date(row.created_at) : undefined,
-    }
+    };
   }
 
   private mapDataSource(row: any): DataSourceDto {
@@ -484,6 +491,6 @@ export class SQLiteService implements DatabaseService {
       lastSyncAt: row.last_sync_at ? new Date(row.last_sync_at) : undefined,
       createdAt: row.created_at ? new Date(row.created_at) : undefined,
       updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
-    }
+    };
   }
 }
