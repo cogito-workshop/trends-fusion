@@ -23,7 +23,7 @@ export function useAITrendPublish(options: UseAITrendPublishOptions = {}) {
   useEffect(() => {
     setApiAvailable(!!window.aiTrendPublish)
     if (enableLogging) {
-      console.log('[useAITrendPublish] API Available:', !!window.aiTrendPublish)
+      // API available check completed
     }
   }, [enableLogging])
 
@@ -189,7 +189,7 @@ export function useAITrendPublish(options: UseAITrendPublishOptions = {}) {
     try {
       const result = await apiCall()
       if (enableLogging) {
-        console.log('[useAITrendPublish] API call successful:', result)
+        // API call successful
       }
       return result
     } catch (err) {
@@ -202,7 +202,7 @@ export function useAITrendPublish(options: UseAITrendPublishOptions = {}) {
 
       if (fallbackToMock && fallback !== undefined) {
         if (enableLogging) {
-          console.log('[useAITrendPublish] Using fallback data')
+          // Using fallback data
         }
         return fallback
       }

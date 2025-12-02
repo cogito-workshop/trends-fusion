@@ -3,6 +3,7 @@
 // ============================================================================
 
 import type { DatabaseService } from '../../database'
+import { logger } from '../../utils/logger.js'
 import type {
   TemplateDto,
   DataSourceDto,
@@ -166,7 +167,7 @@ export class AITrendPublishService {
 
     // Simulate async execution
     setTimeout(async () => {
-      console.log(`Executing workflow: ${type}`, config)
+      logger.info({ msg: 'Executing workflow', type, config })
     }, 100)
 
     return {
