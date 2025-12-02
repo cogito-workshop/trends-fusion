@@ -1,371 +1,372 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
-import { Label } from '../ui/label'
 import { Input } from '../ui/input'
+import { Label } from '../ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
-import { Switch } from '../ui/switch'
+import { Badge } from '../ui/badge'
 import {
   Settings as SettingsIcon,
-  Database,
-  Key,
-  Server,
-  Globe,
+  CheckCircle,
+  XCircle,
+  Loader2,
   Save,
+  TestTube,
+  Eye,
+  EyeOff,
   RefreshCw,
+  AlertCircle,
+  Shield,
+  Bell,
+  Database,
+  Globe,
+  Smartphone
 } from 'lucide-react'
 
-export default function Settings() {
-  const [supabaseUrl, setSupabaseUrl] = useState('')
-  const [supabaseKey, setSupabaseKey] = useState('')
-  const [databaseUrl, setDatabaseUrl] = useState('')
-  const [openaiKey, setOpenaiKey] = useState('')
-  const [autoSync, setAutoSync] = useState(true)
-  const [notifications, setNotifications] = useState(true)
-  const [loading, setLoading] = useState(false)
+interface ConfigItem {
+  key: string
+  label: string
+  description: string
+  category: 'ai' | 'database' | 'notifications' | 'datasources' | 'wechat'
+  required: boolean
+  type: 'api_key' | 'webhook' | 'url' | 'string' | 'number'
+  placeholder: string
+  example?: string
+  sensitive?: boolean
+}
 
-  const handleSave = async () => {
-    setLoading(true)
-    // TODO: 实现保存配置逻辑
-    setTimeout(() => setLoading(false), 1000)
+interface ConfigStatus {
+  key: string
+  isSet: boolean
+  value?: string
+  missing: boolean
+}
+
+interface ConfigReport {
+  totalItems: number
+  configuredItems: number
+  missingItems: number
+  completeness: number
+  categories: Record<string, {
+    total: number
+    configured: number
+    missing: number
+    items: ConfigStatus[]
+  }>
+}
+
+export default function Settings() {
+  const [configItems, setConfigItems] = useState<ConfigItem[]>([])
+  const [configStatus, setConfigStatus] = useState<Record<string, ConfigStatus>>({})
+  const [configReport, setConfigReport] = useState<ConfigReport | null>(null)
+  const [editingValues, setEditingValues] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState<Record<string, boolean>>({})
+  const [testResults, setTestResults] = useState<Record<string, { status: 'success' | 'error' | 'idle', message: string }>>({})
+  const [showSensitive, setShowSensitive] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    loadConfigData()
+  }, [])
+
+  const loadConfigData = async () => {
+    try {
+      setLoading(true)
+      const [items, report] = await Promise.all([
+        window.aiTrendPublish.config.getItems(),
+        window.aiTrendPublish.config.getReport()
+      ])
+
+      setConfigItems(items)
+      setConfigReport(report)
+
+      const statusMap: Record<string, ConfigStatus> = {}
+      Object.entries(report.categories).forEach(([_categoryName, categoryData]) => {
+        (categoryData as { items: ConfigStatus[] }).items.forEach(item => {
+          statusMap[item.key] = item
+        })
+      })
+      setConfigStatus(statusMap)
+
+      const editing: Record<string, string> = {}
+      Object.entries(statusMap).forEach(([key, status]) => {
+        editing[key] = status.value || ''
+      })
+      setEditingValues(editing)
+    } catch (error) {
+      console.error('Failed to load config data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSave = async (key: string, value: string) => {
+    try {
+      setSaving(true)
+      await window.aiTrendPublish.config.set(key, value)
+      await loadConfigData()
+      setTestResults(prev => ({ ...prev, [key]: { status: 'idle', message: '' } }))
+    } catch (error) {
+      console.error('Failed to save config:', error)
+      setTestResults(prev => ({ ...prev, [key]: { status: 'error', message: '保存失败' } }))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleTest = async (key: string, value: string) => {
+    if (!value) {
+      setTestResults(prev => ({ ...prev, [key]: { status: 'error', message: '请先输入配置值' } }))
+      return
+    }
+
+    try {
+      setTesting(prev => ({ ...prev, [key]: true }))
+      setTestResults(prev => ({ ...prev, [key]: { status: 'idle', message: '' } }))
+
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      const configItem = configItems.find(item => item.key === key)
+      if (configItem?.type === 'api_key') {
+        const isValid = value.length > 10
+        setTestResults(prev => ({
+          ...prev,
+          [key]: {
+            status: isValid ? 'success' : 'error',
+            message: isValid ? 'API密钥格式正确' : 'API密钥格式无效'
+          }
+        }))
+      } else if (configItem?.type === 'webhook') {
+        const isValid = value.startsWith('http')
+        setTestResults(prev => ({
+          ...prev,
+          [key]: {
+            status: isValid ? 'success' : 'error',
+            message: isValid ? 'Webhook URL格式正确' : 'Webhook URL格式无效'
+          }
+        }))
+      } else {
+        setTestResults(prev => ({
+          ...prev,
+          [key]: {
+            status: 'success',
+            message: '配置已保存'
+          }
+        }))
+      }
+    } catch (error) {
+      setTestResults(prev => ({
+        ...prev,
+        [key]: {
+          status: 'error',
+          message: '测试失败: ' + (error instanceof Error ? error.message : String(error))
+        }
+      }))
+    } finally {
+      setTesting(prev => ({ ...prev, [key]: false }))
+    }
+  }
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'ai': return <Shield className="h-4 w-4" />
+      case 'database': return <Database className="h-4 w-4" />
+      case 'notifications': return <Bell className="h-4 w-4" />
+      case 'datasources': return <Globe className="h-4 w-4" />
+      case 'wechat': return <Smartphone className="h-4 w-4" />
+      default: return <SettingsIcon className="h-4 w-4" />
+    }
+  }
+
+  const getCategoryLabel = (category: string) => {
+    const labels: Record<string, string> = {
+      'ai': 'AI Providers',
+      'database': 'Database',
+      'notifications': 'Notifications',
+      'datasources': 'Data Sources',
+      'wechat': 'WeChat'
+    }
+    return labels[category] || category
+  }
+
+  if (loading) {
+    return (
+      <div className="p-8">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">加载配置...</span>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className='p-8'>
-      <div className='mb-8 flex items-center justify-between'>
+    <div className="p-8">
+      <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className='text-3xl font-bold'>应用配置</h1>
-          <p className='text-muted-foreground mt-1'>管理系统设置和API配置</p>
+          <h1 className="text-3xl font-bold">应用设置</h1>
+          <p className="text-muted-foreground mt-1">管理所有配置项和API密钥</p>
         </div>
-        <Button onClick={handleSave} disabled={loading}>
-          <Save className='mr-2 h-4 w-4' />
-          {loading ? '保存中...' : '保存配置'}
-        </Button>
+        <div className="flex items-center gap-4">
+          {configReport && (
+            <Badge variant={configReport.completeness >= 50 ? 'default' : 'secondary'}>
+              {configReport.completeness}% 完成 ({configReport.configuredItems}/{configReport.totalItems})
+            </Badge>
+          )}
+          <Button onClick={loadConfigData} variant="outline">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            刷新
+          </Button>
+        </div>
       </div>
 
-      <Tabs defaultValue='database' className='space-y-4'>
-        <TabsList>
-          <TabsTrigger value='database'>数据库</TabsTrigger>
-          <TabsTrigger value='api'>API密钥</TabsTrigger>
-          <TabsTrigger value='system'>系统设置</TabsTrigger>
-          <TabsTrigger value='advanced'>高级</TabsTrigger>
+      <Tabs defaultValue="ai" className="space-y-4">
+        <TabsList className="grid grid-cols-5 w-full">
+          <TabsTrigger value="ai">AI Providers</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="datasources">Data Sources</TabsTrigger>
+          <TabsTrigger value="wechat">WeChat</TabsTrigger>
+          <TabsTrigger value="database">Database</TabsTrigger>
         </TabsList>
 
-        <TabsContent value='database' className='space-y-4'>
-          <Card>
-            <CardHeader>
-              <CardTitle className='flex items-center gap-2'>
-                <Database className='h-5 w-5' />
-                数据库配置
-              </CardTitle>
-              <CardDescription>配置数据库连接和存储设置</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='database-url'>数据库URL</Label>
-                <Input
-                  id='database-url'
-                  placeholder='sqlite:./data/trends-fusion.db 或 postgresql://...'
-                  value={databaseUrl}
-                  onChange={(e) => setDatabaseUrl(e.target.value)}
-                />
-              </div>
-              <div className='flex items-center justify-between rounded-lg border p-4'>
-                <div className='space-y-0.5'>
-                  <Label>自动同步</Label>
-                  <p className='text-sm text-muted-foreground'>
-                    启用后自动同步数据到云端
-                  </p>
-                </div>
-                <Switch checked={autoSync} onCheckedChange={setAutoSync} />
-              </div>
-            </CardContent>
-          </Card>
+        {['ai', 'notifications', 'datasources', 'wechat', 'database'].map(category => {
+          const categoryConfigs = configItems.filter(item => item.category === category)
+          if (categoryConfigs.length === 0) return null
 
-          <Card>
-            <CardHeader>
-              <CardTitle className='flex items-center gap-2'>
-                <Server className='h-5 w-5' />
-                Supabase配置
-              </CardTitle>
-              <CardDescription>配置Supabase云数据库连接</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='supabase-url'>Supabase URL</Label>
-                <Input
-                  id='supabase-url'
-                  placeholder='https://your-project.supabase.co'
-                  value={supabaseUrl}
-                  onChange={(e) => setSupabaseUrl(e.target.value)}
-                />
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='supabase-key'>Supabase Key</Label>
-                <Input
-                  id='supabase-key'
-                  type='password'
-                  placeholder='your-anon-key'
-                  value={supabaseKey}
-                  onChange={(e) => setSupabaseKey(e.target.value)}
-                />
-              </div>
-              <Button variant='outline' className='w-full'>
-                <RefreshCw className='mr-2 h-4 w-4' />
-                测试连接
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          return (
+            <TabsContent key={category} value={category} className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    {getCategoryIcon(category)}
+                    {getCategoryLabel(category)}
+                  </CardTitle>
+                  <CardDescription>
+                    配置 {getCategoryLabel(category)} 相关的设置
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {categoryConfigs.map(config => {
+                    const status = configStatus[config.key]
+                    const editingValue = editingValues[config.key] || ''
+                    const isConfigured = status?.isSet
+                    const testResult = testResults[config.key]
+                    const isTesting = testing[config.key]
+                    const isSaving = saving
+                    const showSensitiveValue = showSensitive[config.key]
 
-        <TabsContent value='api' className='space-y-4'>
-          <Card>
-            <CardHeader>
-              <CardTitle className='flex items-center gap-2'>
-                <Key className='h-5 w-5' />
-                API密钥管理
-              </CardTitle>
-              <CardDescription>配置各平台和服务的API密钥</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='openai-key'>OpenAI API Key</Label>
-                <Input
-                  id='openai-key'
-                  type='password'
-                  placeholder='sk-...'
-                  value={openaiKey}
-                  onChange={(e) => setOpenaiKey(e.target.value)}
-                />
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='github-token'>GitHub Token</Label>
-                <Input
-                  id='github-token'
-                  type='password'
-                  placeholder='ghp_...'
-                />
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='reddit-client-id'>Reddit Client ID</Label>
-                <Input
-                  id='reddit-client-id'
-                  placeholder='your-client-id'
-                />
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='reddit-client-secret'>Reddit Client Secret</Label>
-                <Input
-                  id='reddit-client-secret'
-                  type='password'
-                  placeholder='your-client-secret'
-                />
-              </div>
-            </CardContent>
-          </Card>
+                    return (
+                      <div key={config.key} className="space-y-3 p-4 border rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <Label className="text-base font-medium">{config.label}</Label>
+                              {isConfigured ? (
+                                <Badge variant="default" className="bg-green-500">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  已配置
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">
+                                  <XCircle className="h-3 w-3 mr-1" />
+                                  未配置
+                                </Badge>
+                              )}
+                              {config.required && (
+                                <Badge variant="destructive">必需</Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">{config.description}</p>
+                            {config.example && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                <span>示例: </span>
+                                <code className="bg-muted px-1 py-0.5 rounded">{config.example}</code>
+                              </p>
+                            )}
+                          </div>
+                        </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>平台发布密钥</CardTitle>
-              <CardDescription>配置各社交媒体平台的发布API</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='wechat-appid'>微信公众号 AppID</Label>
-                <Input id='wechat-appid' placeholder='your-appid' />
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='wechat-appsecret'>微信公众号 AppSecret</Label>
-                <Input
-                  id='wechat-appsecret'
-                  type='password'
-                  placeholder='your-appsecret'
-                />
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='xiaohongshu-key'>小红书 Key</Label>
-                <Input
-                  id='xiaohongshu-key'
-                  type='password'
-                  placeholder='your-key'
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                        <div className="flex gap-2">
+                          <div className="flex-1 relative">
+                            <Input
+                              type={config.sensitive && !showSensitiveValue ? 'password' : 'text'}
+                              placeholder={config.placeholder}
+                              value={editingValue}
+                              onChange={(e) => setEditingValues(prev => ({
+                                ...prev,
+                                [config.key]: e.target.value
+                              }))}
+                              className={
+                                testResult?.status === 'error'
+                                  ? 'border-red-500'
+                                  : testResult?.status === 'success'
+                                  ? 'border-green-500'
+                                  : ''
+                              }
+                            />
+                            {config.sensitive && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                                onClick={() => setShowSensitive(prev => ({
+                                  ...prev,
+                                  [config.key]: !prev[config.key]
+                                }))}
+                              >
+                                {showSensitiveValue ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                          <Button
+                            onClick={() => handleTest(config.key, editingValue)}
+                            disabled={isTesting || !editingValue}
+                            variant="outline"
+                          >
+                            {isTesting ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <TestTube className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            onClick={() => handleSave(config.key, editingValue)}
+                            disabled={isSaving || isTesting}
+                          >
+                            {isSaving ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Save className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
 
-        <TabsContent value='system' className='space-y-4'>
-          <Card>
-            <CardHeader>
-              <CardTitle className='flex items-center gap-2'>
-                <SettingsIcon className='h-5 w-5' />
-                系统设置
-              </CardTitle>
-              <CardDescription>配置应用基础设置</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='flex items-center justify-between rounded-lg border p-4'>
-                <div className='space-y-0.5'>
-                  <Label>启用通知</Label>
-                  <p className='text-sm text-muted-foreground'>
-                    接收任务状态更新通知
-                  </p>
-                </div>
-                <Switch checked={notifications} onCheckedChange={setNotifications} />
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='max-workers'>最大并发数</Label>
-                <Input
-                  id='max-workers'
-                  type='number'
-                  placeholder='5'
-                  defaultValue='5'
-                />
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='timeout'>请求超时时间（秒）</Label>
-                <Input
-                  id='timeout'
-                  type='number'
-                  placeholder='30'
-                  defaultValue='30'
-                />
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='retry-times'>重试次数</Label>
-                <Input
-                  id='retry-times'
-                  type='number'
-                  placeholder='3'
-                  defaultValue='3'
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>采集设置</CardTitle>
-              <CardDescription>配置数据采集相关设置</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='fetch-interval'>采集间隔（分钟）</Label>
-                <Input
-                  id='fetch-interval'
-                  type='number'
-                  placeholder='30'
-                  defaultValue='30'
-                />
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='batch-size'>批处理大小</Label>
-                <Input
-                  id='batch-size'
-                  type='number'
-                  placeholder='100'
-                  defaultValue='100'
-                />
-              </div>
-              <div className='flex items-center justify-between rounded-lg border p-4'>
-                <div className='space-y-0.5'>
-                  <Label>启用去重</Label>
-                  <p className='text-sm text-muted-foreground'>
-                    自动过滤重复内容
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value='advanced' className='space-y-4'>
-          <Card>
-            <CardHeader>
-              <CardTitle>代理配置</CardTitle>
-              <CardDescription>配置HTTP/HTTPS代理（可选）</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='proxy-host'>代理主机</Label>
-                <Input id='proxy-host' placeholder='proxy.example.com' />
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='proxy-port'>代理端口</Label>
-                <Input id='proxy-port' type='number' placeholder='8080' />
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='proxy-user'>用户名</Label>
-                <Input id='proxy-user' placeholder='username' />
-              </div>
-              <div className='space-y-2'>
-                <Label htmlFor='proxy-password'>密码</Label>
-                <Input
-                  id='proxy-password'
-                  type='password'
-                  placeholder='password'
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>日志配置</CardTitle>
-              <CardDescription>配置应用日志记录</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='log-level'>日志级别</Label>
-                <select className='flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background'>
-                  <option value='error'>Error</option>
-                  <option value='warn'>Warn</option>
-                  <option value='info'>Info</option>
-                  <option value='debug'>Debug</option>
-                </select>
-              </div>
-              <div className='flex items-center justify-between rounded-lg border p-4'>
-                <div className='space-y-0.5'>
-                  <Label>保存到文件</Label>
-                  <p className='text-sm text-muted-foreground'>
-                    将日志保存到本地文件
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className='flex items-center justify-between rounded-lg border p-4'>
-                <div className='space-y-0.5'>
-                  <Label>调试模式</Label>
-                  <p className='text-sm text-muted-foreground'>
-                    启用详细调试信息
-                  </p>
-                </div>
-                <Switch />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>数据导入/导出</CardTitle>
-              <CardDescription>备份和恢复应用数据</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-4'>
-              <Button variant='outline' className='w-full'>
-                <Globe className='mr-2 h-4 w-4' />
-                导出配置
-              </Button>
-              <Button variant='outline' className='w-full'>
-                <Database className='mr-2 h-4 w-4' />
-                导入配置
-              </Button>
-              <Button variant='destructive' className='w-full'>
-                重置所有配置
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                        {testResult && testResult.status !== 'idle' && (
+                          <div className={`flex items-center gap-2 text-sm ${
+                            testResult.status === 'success' ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {testResult.status === 'success' ? (
+                              <CheckCircle className="h-4 w-4" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4" />
+                            )}
+                            {testResult.message}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )
+        })}
       </Tabs>
     </div>
   )

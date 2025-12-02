@@ -133,7 +133,12 @@ const aiTrendPublishAPI = {
     get: (key: string) => ipcRenderer.invoke('config:get', key),
     set: (key: string, value: string, description?: string) =>
       ipcRenderer.invoke('config:set', key, value, description),
-    delete: (key: string) => ipcRenderer.invoke('config:delete', key)
+    delete: (key: string) => ipcRenderer.invoke('config:delete', key),
+    getReport: () => ipcRenderer.invoke('config:report'),
+    getMissingConfigs: () => ipcRenderer.invoke('config:missing'),
+    getItems: () => ipcRenderer.invoke('config:items'),
+    isConfigured: () => ipcRenderer.invoke('config:is-configured'),
+    hasRequired: () => ipcRenderer.invoke('config:has-required')
   },
 
   // ============================================================================

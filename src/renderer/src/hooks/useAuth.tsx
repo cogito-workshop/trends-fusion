@@ -43,17 +43,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, _password: string) => {
     setIsLoading(true)
     try {
-      // TODO: 实现真实的API调用
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // 简单的本地认证 - 在生产环境中应该调用真实API
+      const storedUsers = localStorage.getItem('registeredUsers')
+      const registeredUsers = storedUsers ? JSON.parse(storedUsers) : []
 
-      const mockUser: User = {
-        id: '1',
-        email,
-        name: email.split('@')[0]
+      const foundUser = registeredUsers.find((u: any) => u.email === email)
+
+      if (!foundUser) {
+        throw new Error('用户不存在')
       }
 
-      setUser(mockUser)
-      localStorage.setItem('user', JSON.stringify(mockUser))
+      const user: User = {
+        id: foundUser.id,
+        email: foundUser.email,
+        name: foundUser.name
+      }
+
+      setUser(user)
+      localStorage.setItem('user', JSON.stringify(user))
     } catch (error) {
       throw new Error('登录失败')
     } finally {
@@ -64,17 +71,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (email: string, _password: string, name: string) => {
     setIsLoading(true)
     try {
-      // TODO: 实现真实的API调用
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // 简单的本地注册 - 在生产环境中应该调用真实API
+      const storedUsers = localStorage.getItem('registeredUsers')
+      const registeredUsers = storedUsers ? JSON.parse(storedUsers) : []
 
-      const mockUser: User = {
+      // 检查用户是否已存在
+      const existingUser = registeredUsers.find((u: any) => u.email === email)
+      if (existingUser) {
+        throw new Error('用户已存在')
+      }
+
+      const newUser = {
         id: Date.now().toString(),
         email,
         name
       }
 
-      setUser(mockUser)
-      localStorage.setItem('user', JSON.stringify(mockUser))
+      registeredUsers.push(newUser)
+      localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers))
+
+      const user: User = {
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name
+      }
+
+      setUser(user)
+      localStorage.setItem('user', JSON.stringify(user))
     } catch (error) {
       throw new Error('注册失败')
     } finally {

@@ -13,5 +13,8 @@
   "aliases": {
     "components": "src/renderer/src/components",
     "utils": "src/renderer/src/lib/utils"
+  },
+  "registries": {
+    "@acme": "https://acme.com/r/{name}.json"
   }
 }

@@ -134,7 +134,7 @@ export default function CollectionDashboard() {
     try {
       await createFilterRule({
         name: filterForm.name,
-        sourceId: filterForm.sourceId,
+        sourceId: filterForm.sourceId ? parseInt(filterForm.sourceId) : undefined,
         type: filterForm.type as any,
         conditions: filterForm.conditions.split(',').map(c => c.trim()),
       })
@@ -521,9 +521,9 @@ export default function CollectionDashboard() {
                     </>
                   )}
 
-                  {/* Mock Data (for demonstration) */}
+                  {/* Collection History Records */}
                   <div className='text-sm font-medium mb-2 mt-4'>
-                    Demo History Records ({historyRecords.length})
+                    History Records ({historyRecords.length})
                   </div>
                   {historyRecords.map((record) => (
                     <div key={record.id} className='border rounded-lg p-4 hover:shadow-md transition-shadow'>
@@ -637,7 +637,7 @@ export default function CollectionDashboard() {
                           <div>
                             <p className='text-sm font-medium'>{rule.name}</p>
                             <p className='text-xs text-muted-foreground'>
-                              Type: {rule.type} • Conditions: {rule.conditions.join(', ')}
+                              Type: {rule.type} • Conditions: {Array.isArray(rule.conditions) ? rule.conditions.join(', ') : rule.conditions}
                             </p>
                           </div>
                         </div>
@@ -645,10 +645,10 @@ export default function CollectionDashboard() {
                           <Badge variant={rule.enabled ? 'default' : 'secondary'}>
                             {rule.enabled ? 'Enabled' : 'Disabled'}
                           </Badge>
-                          <Button variant='ghost' size='sm' onClick={() => toggleFilterRule(rule.id)}>
+                          <Button variant='ghost' size='sm' onClick={() => rule.id !== undefined && toggleFilterRule(rule.id)}>
                             {rule.enabled ? <Pause className='h-4 w-4' /> : <CheckCircle2 className='h-4 w-4' />}
                           </Button>
-                          <Button variant='ghost' size='sm' onClick={() => showDeleteConfirm('filter', rule.id, rule.name)}>
+                          <Button variant='ghost' size='sm' onClick={() => rule.id !== undefined && showDeleteConfirm('filter', String(rule.id), rule.name)}>
                             <Trash2 className='h-4 w-4 text-destructive' />
                           </Button>
                         </div>

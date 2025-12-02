@@ -11,11 +11,13 @@ import {
   Bot,
   LogOut,
   User,
+  BarChart3,
 } from 'lucide-react'
 
 const navigation = [
   { name: '控制面板', to: '/dashboard', icon: LayoutDashboard },
   { name: '数据采集', to: '/collection', icon: Database },
+  { name: '数据分析', to: '/analytics', icon: BarChart3 },
   { name: '智能总结', to: '/summary', icon: Brain },
   { name: '发布管理', to: '/publish', icon: Share2 },
   { name: '通知系统', to: '/notifications', icon: Bell },

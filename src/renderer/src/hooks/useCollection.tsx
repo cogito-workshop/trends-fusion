@@ -13,13 +13,15 @@ interface DataSource {
 }
 
 interface FilterRule {
-  id: string
-  sourceId: string
+  id?: number
+  sourceId?: number
+  source_id?: number
   name: string
-  type: 'keyword' | 'regex' | 'category' | 'time'
-  conditions: string[]
+  type: 'keyword' | 'regex' | 'category' | 'time' | 'tag'
+  conditions: string[] | string
   action: 'include' | 'exclude'
   enabled: boolean
+  priority?: number
 }
 
 interface CollectionSchedule {
@@ -31,6 +33,7 @@ interface CollectionSchedule {
   enabled: boolean
   lastRun?: string
   nextRun?: string
+  timezone?: string
 }
 
 interface CollectedItem {
@@ -73,251 +76,90 @@ export function useCollection() {
     const fetchData = async () => {
       setLoading(true)
       try {
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // 调用IPC获取真实数据
+        const [sources, history, items, filterRulesData, schedulesData] = await Promise.all([
+          window.electron.ipcRenderer.invoke('data-sources:list'),
+          window.electron.ipcRenderer.invoke('collection:history', undefined, 50),
+          window.electron.ipcRenderer.invoke('collection:items', undefined, undefined, 100, 0),
+          window.electron.ipcRenderer.invoke('filter-rules:list'),
+          window.electron.ipcRenderer.invoke('collection-schedules:list')
+        ])
 
-        const mockSources: DataSource[] = [
-          {
-            id: '1',
-            name: 'Hacker News',
-            type: 'api',
-            status: 'active',
-            url: 'https://hacker-news.firebaseio.com/v0',
-            lastSync: '2024-12-01 14:00:00',
-            items: 1245,
-            config: {
-              endpoint: '/topstories.json',
-              rateLimit: 60,
-              maxItems: 100,
-            },
-            createdAt: '2024-11-01 10:00:00',
-          },
-          {
-            id: '2',
-            name: 'GitHub Trending',
-            type: 'scrape',
-            status: 'active',
-            url: 'https://github.com/trending',
-            lastSync: '2024-12-01 14:05:00',
-            items: 856,
-            config: {
-              selectors: '.repo-name',
-              rateLimit: 300,
-              maxItems: 50,
-            },
-            createdAt: '2024-11-01 11:00:00',
-          },
-          {
-            id: '3',
-            name: 'Reddit AI',
-            type: 'api',
-            status: 'paused',
-            url: 'https://www.reddit.com/r/MachineLearning',
-            lastSync: '2024-12-01 12:00:00',
-            items: 342,
-            config: {
-              endpoint: '/hot.json',
-              rateLimit: 120,
-              maxItems: 25,
-            },
-            createdAt: '2024-11-01 12:00:00',
-          },
-          {
-            id: '4',
-            name: 'Tech Blogs RSS',
-            type: 'rss',
-            status: 'error',
-            url: 'https://example.com/feed.xml',
-            lastSync: '2024-12-01 10:00:00',
-            items: 0,
-            config: {
-              feedUrl: 'https://example.com/feed.xml',
-              parseInterval: 3600,
-            },
-            createdAt: '2024-11-01 13:00:00',
-          },
-        ]
+        // 转换数据格式以匹配前端接口
+        const formattedSources: DataSource[] = (sources || []).map((source: any) => ({
+          id: source.id.toString(),
+          name: source.name,
+          type: source.type,
+          status: source.status,
+          url: source.url,
+          lastSync: source.updated_at || 'Never',
+          items: 0, // TODO: 从collected_items表统计
+          config: source.config ? JSON.parse(source.config) : {},
+          createdAt: source.created_at,
+        }))
 
-        const mockFilters: FilterRule[] = [
-          {
-            id: '1',
-            sourceId: '1',
-            name: 'AI Keywords Filter',
-            type: 'keyword',
-            conditions: ['AI', 'Machine Learning', 'Deep Learning'],
-            action: 'include',
-            enabled: true,
-          },
-          {
-            id: '2',
-            sourceId: '2',
-            name: 'Exclude Non-JS Projects',
-            type: 'keyword',
-            conditions: ['JavaScript', 'TypeScript'],
-            action: 'exclude',
-            enabled: true,
-          },
-        ]
+        const formattedHistory: HistoryRecord[] = (history || []).map((record: any) => ({
+          id: record.id.toString(),
+          sourceId: record.source_id.toString(),
+          sourceName: record.source_name || `Source ${record.source_id}`,
+          type: record.type,
+          status: record.status,
+          startTime: record.start_time,
+          endTime: record.end_time,
+          itemsCollected: record.items_collected,
+          duration: record.end_time ? calculateDuration(record.start_time, record.end_time) : undefined,
+          errorMessage: record.error_message,
+          logs: record.logs ? JSON.parse(record.logs) : [],
+        }))
 
-        const mockSchedules: CollectionSchedule[] = [
-          {
-            id: '1',
-            sourceId: '1',
-            name: 'Hourly HN Sync',
-            cronExpression: '0 * * * *',
-            interval: 'Hourly',
-            enabled: true,
-            lastRun: '2024-12-01 14:00:00',
-            nextRun: '2024-12-01 15:00:00',
-          },
-          {
-            id: '2',
-            sourceId: '2',
-            name: 'GitHub Trending Every 2 Hours',
-            cronExpression: '0 */2 * * *',
-            interval: 'Every 2 Hours',
-            enabled: true,
-            lastRun: '2024-12-01 14:00:00',
-            nextRun: '2024-12-01 16:00:00',
-          },
-        ]
+        const formattedItems: CollectedItem[] = (items || []).map((item: any) => ({
+          id: item.id.toString(),
+          sourceId: item.source_id.toString(),
+          title: item.title || 'No title',
+          content: item.content,
+          url: item.url,
+          author: item.author,
+          publishedAt: item.published_at || item.created_at,
+          category: item.category,
+          tags: item.tags ? JSON.parse(item.tags) : [],
+          status: item.status,
+        }))
 
-        const mockItems: CollectedItem[] = [
-          {
-            id: '1',
-            sourceId: '1',
-            title: 'OpenAI Releases GPT-5',
-            content: 'OpenAI has officially announced the release of their latest GPT-5 model...',
-            url: 'https://news.ycombinator.com/item?id=12345',
-            author: 'user123',
-            publishedAt: '2024-12-01 14:00:00',
-            category: 'AI',
-            tags: ['OpenAI', 'GPT-5', 'NLP'],
-            status: 'new',
-          },
-          {
-            id: '2',
-            sourceId: '1',
-            title: 'Google Releases Gemini Ultra',
-            content: 'Google announces their latest Gemini Ultra model with improved performance...',
-            url: 'https://news.ycombinator.com/item?id=12346',
-            author: 'user456',
-            publishedAt: '2024-12-01 13:30:00',
-            category: 'AI',
-            tags: ['Google', 'Gemini', 'LLM'],
-            status: 'processed',
-          },
-          {
-            id: '3',
-            sourceId: '2',
-            title: 'Awesome AI Toolkit',
-            content: 'A comprehensive collection of AI tools and resources for developers...',
-            url: 'https://github.com/trending/ai-toolkit',
-            author: 'dev789',
-            publishedAt: '2024-12-01 13:00:00',
-            category: 'Tools',
-            tags: ['GitHub', 'AI', 'Tools'],
-            status: 'new',
-          },
-        ]
+        const formattedFilterRules: FilterRule[] = (filterRulesData || []).map((rule: any) => ({
+          id: rule.id,
+          sourceId: rule.source_id,
+          name: rule.name,
+          type: rule.type,
+          conditions: JSON.parse(rule.conditions),
+          action: rule.action,
+          enabled: rule.enabled,
+          priority: rule.priority,
+        }))
 
-        const mockHistoryRecords: HistoryRecord[] = [
-          {
-            id: '1',
-            sourceId: '1',
-            sourceName: 'Hacker News',
-            type: 'manual',
-            status: 'success',
-            startTime: '2024-12-01 14:00:00',
-            endTime: '2024-12-01 14:02:15',
-            itemsCollected: 45,
-            duration: '2m 15s',
-            logs: [
-              '2024-12-01 14:00:00 - 开始连接到 Hacker News API',
-              '2024-12-01 14:00:03 - 成功获取API响应',
-              '2024-12-01 14:00:45 - 开始解析JSON数据',
-              '2024-12-01 14:01:12 - 过滤出45条有效记录',
-              '2024-12-01 14:02:10 - 数据验证完成',
-              '2024-12-01 14:02:15 - 采集完成'
-            ]
-          },
-          {
-            id: '2',
-            sourceId: '2',
-            sourceName: 'GitHub Trending',
-            type: 'scheduled',
-            status: 'success',
-            startTime: '2024-12-01 14:05:00',
-            endTime: '2024-12-01 14:07:30',
-            itemsCollected: 28,
-            duration: '2m 30s',
-            logs: [
-              '2024-12-01 14:05:00 - 开始定时任务: GitHub Trending 采集',
-              '2024-12-01 14:05:05 - 启动网页爬虫',
-              '2024-12-01 14:06:20 - 解析DOM结构',
-              '2024-12-01 14:06:55 - 提取项目信息',
-              '2024-12-01 14:07:25 - 去重处理完成',
-              '2024-12-01 14:07:30 - 采集完成，共28个项目'
-            ]
-          },
-          {
-            id: '3',
-            sourceId: '3',
-            sourceName: 'Reddit AI',
-            type: 'sync',
-            status: 'failed',
-            startTime: '2024-12-01 12:00:00',
-            endTime: '2024-12-01 12:00:45',
-            itemsCollected: 0,
-            duration: '45s',
-            errorMessage: '连接超时: 无法访问Reddit API',
-            logs: [
-              '2024-12-01 12:00:00 - 开始同步 Reddit AI 数据',
-              '2024-12-01 12:00:05 - 发送API请求',
-              '2024-12-01 12:00:30 - 请求超时',
-              '2024-12-01 12:00:45 - 采集失败: 连接超时'
-            ]
-          },
-          {
-            id: '4',
-            sourceId: '1',
-            sourceName: 'Hacker News',
-            type: 'test',
-            status: 'in-progress',
-            startTime: '2024-12-01 15:30:00',
-            itemsCollected: 0,
-            duration: undefined,
-            logs: [
-              '2024-12-01 15:30:00 - 开始连接测试',
-              '2024-12-01 15:30:02 - 正在验证API端点...'
-            ]
-          },
-          {
-            id: '5',
-            sourceId: '4',
-            sourceName: 'Tech Blogs RSS',
-            type: 'manual',
-            status: 'success',
-            startTime: '2024-12-01 10:00:00',
-            endTime: '2024-12-01 10:01:20',
-            itemsCollected: 12,
-            duration: '1m 20s',
-            logs: [
-              '2024-12-01 10:00:00 - 开始采集 RSS 订阅源',
-              '2024-12-01 10:00:10 - 解析 RSS XML',
-              '2024-12-01 10:00:45 - 提取文章列表',
-              '2024-12-01 10:01:15 - 验证文章内容',
-              '2024-12-01 10:01:20 - 采集完成，共12篇文章'
-            ]
-          }
-        ]
+        const formattedSchedules: CollectionSchedule[] = (schedulesData || []).map((schedule: any) => ({
+          id: schedule.id.toString(),
+          sourceId: schedule.source_id.toString(),
+          name: schedule.name,
+          cronExpression: schedule.cron_expression,
+          interval: schedule.interval,
+          enabled: schedule.enabled,
+          lastRun: schedule.last_run,
+          nextRun: schedule.next_run,
+        }))
 
-        setDataSources(mockSources)
-        setFilterRules(mockFilters)
-        setSchedules(mockSchedules)
-        setCollectedItems(mockItems)
-        setHistoryRecords(mockHistoryRecords)
+        setDataSources(formattedSources)
+        setHistoryRecords(formattedHistory)
+        setCollectedItems(formattedItems)
+        setFilterRules(formattedFilterRules)
+        setSchedules(formattedSchedules)
       } catch (error) {
         console.error('Failed to fetch collection data:', error)
+        // 如果获取失败，设置为空数组而不是mock数据
+        setDataSources([])
+        setHistoryRecords([])
+        setCollectedItems([])
+        setFilterRules([])
+        setSchedules([])
       } finally {
         setLoading(false)
       }
@@ -326,151 +168,656 @@ export function useCollection() {
     fetchData()
   }, [])
 
+  // 计算持续时间的辅助函数
+  const calculateDuration = (startTime: string, endTime: string): string => {
+    const start = new Date(startTime).getTime()
+    const end = new Date(endTime).getTime()
+    const diffMs = end - start
+    const diffSec = Math.floor(diffMs / 1000)
+    const diffMin = Math.floor(diffSec / 60)
+    const diffHours = Math.floor(diffMin / 60)
+
+    if (diffHours > 0) {
+      return `${diffHours}h ${diffMin % 60}m`
+    } else if (diffMin > 0) {
+      return `${diffMin}m ${diffSec % 60}s`
+    } else {
+      return `${diffSec}s`
+    }
+  }
+
   // 创建数据源
   const createDataSource = async (data: Partial<DataSource>) => {
-    const newSource: DataSource = {
-      id: Date.now().toString(),
-      name: data.name || 'New Data Source',
-      type: data.type || 'api',
-      status: 'testing',
-      items: 0,
-      config: data.config || {},
-      createdAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      url: data.url,
+    try {
+      const result = await window.electron.ipcRenderer.invoke('data-sources:create', {
+        name: data.name || 'New Data Source',
+        type: data.type || 'api',
+        status: 'testing',
+        url: data.url,
+        config: data.config || {},
+      })
+
+      if (result.success) {
+        // 刷新数据源列表
+        const sources = await window.electron.ipcRenderer.invoke('data-sources:list')
+        setDataSources(
+          (sources || []).map((source: any) => ({
+            id: source.id.toString(),
+            name: source.name,
+            type: source.type,
+            status: source.status,
+            url: source.url,
+            lastSync: source.updated_at || 'Never',
+            items: 0,
+            config: source.config ? JSON.parse(source.config) : {},
+            createdAt: source.created_at,
+          }))
+        )
+        return { id: result.id, success: true }
+      }
+      return { success: false }
+    } catch (error) {
+      console.error('Failed to create data source:', error)
+      return { success: false, error }
     }
-    setDataSources(prev => [...prev, newSource])
-    return newSource
   }
 
   // 更新数据源
   const updateDataSource = async (id: string, updates: Partial<DataSource>) => {
-    setDataSources(prev =>
-      prev.map(source =>
-        source.id === id ? { ...source, ...updates } : source
-      )
-    )
+    try {
+      const result = await window.electron.ipcRenderer.invoke('data-sources:update', Number(id), {
+        name: updates.name,
+        type: updates.type,
+        url: updates.url,
+        status: updates.status,
+        config: updates.config,
+      })
+
+      if (result.success) {
+        // 刷新数据源列表
+        const sources = await window.electron.ipcRenderer.invoke('data-sources:list')
+        setDataSources(
+          (sources || []).map((source: any) => ({
+            id: source.id.toString(),
+            name: source.name,
+            type: source.type,
+            status: source.status,
+            url: source.url,
+            lastSync: source.updated_at || 'Never',
+            items: 0,
+            config: source.config ? JSON.parse(source.config) : {},
+            createdAt: source.created_at,
+          }))
+        )
+        return { success: true }
+      }
+      return { success: false }
+    } catch (error) {
+      console.error('Failed to update data source:', error)
+      return { success: false, error }
+    }
   }
 
   // 删除数据源
   const deleteDataSource = async (id: string) => {
-    setDataSources(prev => prev.filter(source => source.id !== id))
-    // 同时删除相关的过滤规则和计划
-    setFilterRules(prev => prev.filter(rule => rule.sourceId !== id))
-    setSchedules(prev => prev.filter(schedule => schedule.sourceId !== id))
+    try {
+      const result = await window.electron.ipcRenderer.invoke('data-sources:delete', Number(id))
+
+      if (result.success) {
+        // 刷新数据源列表
+        const sources = await window.electron.ipcRenderer.invoke('data-sources:list')
+        setDataSources(
+          (sources || []).map((source: any) => ({
+            id: source.id.toString(),
+            name: source.name,
+            type: source.type,
+            status: source.status,
+            url: source.url,
+            lastSync: source.updated_at || 'Never',
+            items: 0,
+            config: source.config ? JSON.parse(source.config) : {},
+            createdAt: source.created_at,
+          }))
+        )
+        // 刷新采集历史
+        const history = await window.electron.ipcRenderer.invoke('collection:history', undefined, 50)
+        setHistoryRecords(
+          (history || []).map((record: any) => ({
+            id: record.id.toString(),
+            sourceId: record.source_id.toString(),
+            sourceName: record.source_name || `Source ${record.source_id}`,
+            type: record.type,
+            status: record.status,
+            startTime: record.start_time,
+            endTime: record.end_time,
+            itemsCollected: record.items_collected,
+            duration: record.end_time ? calculateDuration(record.start_time, record.end_time) : undefined,
+            errorMessage: record.error_message,
+            logs: record.logs ? JSON.parse(record.logs) : [],
+          }))
+        )
+        return { success: true }
+      }
+      return { success: false }
+    } catch (error) {
+      console.error('Failed to delete data source:', error)
+      return { success: false, error }
+    }
   }
 
   // 切换数据源状态
   const toggleDataSourceStatus = async (id: string) => {
-    setDataSources(prev =>
-      prev.map(source => {
-        if (source.id === id) {
-          const newStatus = source.status === 'active' ? 'paused' : 'active'
-          return { ...source, status: newStatus }
-        }
-        return source
+    try {
+      const source = dataSources.find(s => s.id === id)
+      if (!source) {
+        return { success: false, error: 'Source not found' }
+      }
+
+      const newStatus = source.status === 'active' ? 'paused' : 'active'
+
+      const result = await window.electron.ipcRenderer.invoke('data-sources:update', Number(id), {
+        status: newStatus,
       })
-    )
+
+      if (result.success) {
+        // 刷新数据源列表
+        const sources = await window.electron.ipcRenderer.invoke('data-sources:list')
+        setDataSources(
+          (sources || []).map((source: any) => ({
+            id: source.id.toString(),
+            name: source.name,
+            type: source.type,
+            status: source.status,
+            url: source.url,
+            lastSync: source.updated_at || 'Never',
+            items: 0,
+            config: source.config ? JSON.parse(source.config) : {},
+            createdAt: source.created_at,
+          }))
+        )
+        return { success: true }
+      }
+      return { success: false }
+    } catch (error) {
+      console.error('Failed to toggle data source status:', error)
+      return { success: false, error }
+    }
   }
 
   // 测试数据源连接
   const testDataSource = async (id: string) => {
-    setDataSources(prev =>
-      prev.map(source =>
-        source.id === id ? { ...source, status: 'testing' as const } : source
+    try {
+      // 先更新状态为testing
+      setDataSources(prev =>
+        prev.map(source =>
+          source.id === id ? { ...source, status: 'testing' as const } : source
+        )
       )
-    )
 
-    // 模拟测试延迟
-    setTimeout(() => {
+      // 调用真实的连接测试
+      const result = await window.electron.ipcRenderer.invoke('collection:test-connection', Number(id))
+
+      // 更新状态为测试结果
       setDataSources(prev =>
         prev.map(source => {
           if (source.id === id) {
-            // 模拟90%成功率
-            const success = Math.random() > 0.1
+            const newStatus = result.success ? 'active' : 'error'
             return {
               ...source,
-              status: success ? 'active' : 'error',
-              lastSync: success ? new Date().toISOString().replace('T', ' ').substring(0, 19) : source.lastSync,
-              items: success ? source.items + 50 : source.items,
+              status: newStatus,
+              lastSync: result.success ? new Date().toISOString().replace('T', ' ').substring(0, 19) : source.lastSync,
+              items: result.success && result.itemsFound ? source.items + result.itemsFound : source.items,
             }
           }
           return source
         })
       )
-    }, 2000)
+
+      return result
+    } catch (error) {
+      console.error('Failed to test data source:', error)
+      // 更新状态为错误
+      setDataSources(prev =>
+        prev.map(source =>
+          source.id === id ? { ...source, status: 'error' as const } : source
+        )
+      )
+      return { success: false, error }
+    }
   }
 
   // 手动同步
   const syncDataSource = async (id: string) => {
-    setDataSources(prev =>
-      prev.map(source =>
-        source.id === id
-          ? {
-              ...source,
-              lastSync: new Date().toISOString().replace('T', ' ').substring(0, 19),
-              items: source.items + Math.floor(Math.random() * 50) + 10,
-              status: 'active' as const,
-            }
-          : source
+    try {
+      // 先更新状态为active
+      setDataSources(prev =>
+        prev.map(source =>
+          source.id === id ? { ...source, status: 'active' as const } : source
+        )
       )
-    )
+
+      // 调用真实的采集功能
+      const result = await window.electron.ipcRenderer.invoke('collection:start', Number(id), 'manual')
+
+      if (result.success) {
+        // 刷新数据源列表
+        const sources = await window.electron.ipcRenderer.invoke('data-sources:list')
+        setDataSources(
+          (sources || []).map((source: any) => ({
+            id: source.id.toString(),
+            name: source.name,
+            type: source.type,
+            status: source.status,
+            url: source.url,
+            lastSync: source.updated_at || 'Never',
+            items: 0,
+            config: source.config ? JSON.parse(source.config) : {},
+            createdAt: source.created_at,
+          }))
+        )
+
+        // 刷新采集历史
+        const history = await window.electron.ipcRenderer.invoke('collection:history', undefined, 50)
+        setHistoryRecords(
+          (history || []).map((record: any) => ({
+            id: record.id.toString(),
+            sourceId: record.source_id.toString(),
+            sourceName: record.source_name || `Source ${record.source_id}`,
+            type: record.type,
+            status: record.status,
+            startTime: record.start_time,
+            endTime: record.end_time,
+            itemsCollected: record.items_collected,
+            duration: record.end_time ? calculateDuration(record.start_time, record.end_time) : undefined,
+            errorMessage: record.error_message,
+            logs: record.logs ? JSON.parse(record.logs) : [],
+          }))
+        )
+
+        // 刷新采集项
+        const items = await window.electron.ipcRenderer.invoke('collection:items', undefined, undefined, 100, 0)
+        setCollectedItems(
+          (items || []).map((item: any) => ({
+            id: item.id.toString(),
+            sourceId: item.source_id.toString(),
+            title: item.title || 'No title',
+            content: item.content,
+            url: item.url,
+            author: item.author,
+            publishedAt: item.published_at || item.created_at,
+            category: item.category,
+            tags: item.tags ? JSON.parse(item.tags) : [],
+            status: item.status,
+          }))
+        )
+
+        return result
+      }
+      return result
+    } catch (error) {
+      console.error('Failed to sync data source:', error)
+      return { success: false, error }
+    }
   }
 
   // 创建过滤规则
   const createFilterRule = async (data: Partial<FilterRule>) => {
-    const newRule: FilterRule = {
-      id: Date.now().toString(),
-      name: data.name || 'New Filter',
-      type: data.type || 'keyword',
-      sourceId: data.sourceId || '',
-      conditions: data.conditions || [],
-      action: data.action || 'include',
-      enabled: data.enabled ?? true,
+    try {
+      const result = await window.electron.ipcRenderer.invoke('filter-rules:create', {
+        sourceId: data.sourceId,
+        name: data.name || 'New Filter',
+        type: data.type || 'keyword',
+        conditions: data.conditions || [],
+        action: data.action || 'include',
+        enabled: data.enabled ?? true,
+        priority: data.priority || 0,
+      })
+
+      if (result.success) {
+        // 刷新过滤规则列表
+        const rules = await window.electron.ipcRenderer.invoke('filter-rules:list')
+        setFilterRules(
+          (rules || []).map((rule: any) => ({
+            id: rule.id,
+            sourceId: rule.source_id,
+            name: rule.name,
+            type: rule.type,
+            conditions: JSON.parse(rule.conditions),
+            action: rule.action,
+            enabled: rule.enabled,
+            priority: rule.priority,
+          }))
+        )
+        return { id: result.id, success: true }
+      }
+      return { success: false }
+    } catch (error) {
+      console.error('Failed to create filter rule:', error)
+      return { success: false, error }
     }
-    setFilterRules(prev => [...prev, newRule])
-    return newRule
   }
 
   // 切换过滤规则状态
-  const toggleFilterRule = async (id: string) => {
-    setFilterRules(prev =>
-      prev.map(rule =>
-        rule.id === id ? { ...rule, enabled: !rule.enabled } : rule
-      )
-    )
+  const toggleFilterRule = async (id: string | number) => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke('filter-rules:toggle', Number(id))
+
+      if (result.success) {
+        // 刷新过滤规则列表
+        const rules = await window.electron.ipcRenderer.invoke('filter-rules:list')
+        setFilterRules(
+          (rules || []).map((rule: any) => ({
+            id: rule.id,
+            sourceId: rule.source_id,
+            name: rule.name,
+            type: rule.type,
+            conditions: JSON.parse(rule.conditions),
+            action: rule.action,
+            enabled: rule.enabled,
+            priority: rule.priority,
+          }))
+        )
+        return { success: true }
+      }
+      return { success: false }
+    } catch (error) {
+      console.error('Failed to toggle filter rule:', error)
+      return { success: false, error }
+    }
   }
 
   // 删除过滤规则
-  const deleteFilterRule = async (id: string) => {
-    setFilterRules(prev => prev.filter(rule => rule.id !== id))
+  const deleteFilterRule = async (id: string | number) => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke('filter-rules:delete', Number(id))
+
+      if (result.success) {
+        // 刷新过滤规则列表
+        const rules = await window.electron.ipcRenderer.invoke('filter-rules:list')
+        setFilterRules(
+          (rules || []).map((rule: any) => ({
+            id: rule.id,
+            sourceId: rule.source_id,
+            name: rule.name,
+            type: rule.type,
+            conditions: JSON.parse(rule.conditions),
+            action: rule.action,
+            enabled: rule.enabled,
+            priority: rule.priority,
+          }))
+        )
+        return { success: true }
+      }
+      return { success: false }
+    } catch (error) {
+      console.error('Failed to delete filter rule:', error)
+      return { success: false, error }
+    }
   }
 
   // 创建采集计划
   const createSchedule = async (data: Partial<CollectionSchedule>) => {
-    const newSchedule: CollectionSchedule = {
-      id: Date.now().toString(),
-      name: data.name || 'New Schedule',
-      cronExpression: data.cronExpression || '0 */6 * * *',
-      interval: data.interval || 'Every 6 Hours',
-      enabled: data.enabled ?? true,
-      sourceId: data.sourceId || '',
+    try {
+      const result = await window.electron.ipcRenderer.invoke('collection-schedules:create', {
+        sourceId: data.sourceId,
+        name: data.name || 'New Schedule',
+        cronExpression: data.cronExpression || '0 */6 * * *',
+        interval: data.interval || 'Every 6 Hours',
+        timezone: data.timezone || 'UTC',
+        enabled: data.enabled ?? true,
+      })
+
+      if (result.success) {
+        // 刷新采集计划列表
+        const schedules = await window.electron.ipcRenderer.invoke('collection-schedules:list')
+        setSchedules(
+          (schedules || []).map((schedule: any) => ({
+            id: schedule.id.toString(),
+            sourceId: schedule.source_id.toString(),
+            name: schedule.name,
+            cronExpression: schedule.cron_expression,
+            interval: schedule.interval,
+            enabled: schedule.enabled,
+            lastRun: schedule.last_run,
+            nextRun: schedule.next_run,
+          }))
+        )
+        return { id: result.id, success: true }
+      }
+      return { success: false }
+    } catch (error) {
+      console.error('Failed to create schedule:', error)
+      return { success: false, error }
     }
-    setSchedules(prev => [...prev, newSchedule])
-    return newSchedule
   }
 
   // 切换计划状态
   const toggleSchedule = async (id: string) => {
-    setSchedules(prev =>
-      prev.map(schedule =>
-        schedule.id === id ? { ...schedule, enabled: !schedule.enabled } : schedule
-      )
-    )
+    try {
+      const result = await window.electron.ipcRenderer.invoke('collection-schedules:toggle', Number(id))
+
+      if (result.success) {
+        // 刷新采集计划列表
+        const schedules = await window.electron.ipcRenderer.invoke('collection-schedules:list')
+        setSchedules(
+          (schedules || []).map((schedule: any) => ({
+            id: schedule.id.toString(),
+            sourceId: schedule.source_id.toString(),
+            name: schedule.name,
+            cronExpression: schedule.cron_expression,
+            interval: schedule.interval,
+            enabled: schedule.enabled,
+            lastRun: schedule.last_run,
+            nextRun: schedule.next_run,
+          }))
+        )
+        return { success: true }
+      }
+      return { success: false }
+    } catch (error) {
+      console.error('Failed to toggle schedule:', error)
+      return { success: false, error }
+    }
   }
 
   // 删除计划
   const deleteSchedule = async (id: string) => {
-    setSchedules(prev => prev.filter(schedule => schedule.id !== id))
+    try {
+      const result = await window.electron.ipcRenderer.invoke('collection-schedules:delete', Number(id))
+
+      if (result.success) {
+        // 刷新采集计划列表
+        const schedules = await window.electron.ipcRenderer.invoke('collection-schedules:list')
+        setSchedules(
+          (schedules || []).map((schedule: any) => ({
+            id: schedule.id.toString(),
+            sourceId: schedule.source_id.toString(),
+            name: schedule.name,
+            cronExpression: schedule.cron_expression,
+            interval: schedule.interval,
+            enabled: schedule.enabled,
+            lastRun: schedule.last_run,
+            nextRun: schedule.next_run,
+          }))
+        )
+        return { success: true }
+      }
+      return { success: false }
+    } catch (error) {
+      console.error('Failed to delete schedule:', error)
+      return { success: false, error }
+    }
+  }
+
+  // ============================================================================
+  // Data Analysis
+  // ============================================================================
+
+  // 获取关键词频率分析
+  const getKeywordFrequency = async (sourceId?: number, days: number = 30) => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke('analysis:keyword-frequency', sourceId, days)
+      return result || []
+    } catch (error) {
+      console.error('Failed to get keyword frequency:', error)
+      return []
+    }
+  }
+
+  // 获取时间模式分析
+  const getTemporalPatterns = async (sourceId?: number, days: number = 30) => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke('analysis:temporal-patterns', sourceId, days)
+      return result || []
+    } catch (error) {
+      console.error('Failed to get temporal patterns:', error)
+      return []
+    }
+  }
+
+  // 获取趋势分析
+  const getTrends = async (sourceId?: number, days: number = 7) => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke('analysis:trends', sourceId, days)
+      return result || []
+    } catch (error) {
+      console.error('Failed to get trends:', error)
+      return []
+    }
+  }
+
+  // 获取异常检测
+  const getAnomalies = async (sourceId?: number, days: number = 30) => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke('analysis:anomalies', sourceId, days)
+      return result || []
+    } catch (error) {
+      console.error('Failed to get anomalies:', error)
+      return []
+    }
+  }
+
+  // 执行综合分析
+  const getComprehensiveAnalysis = async (sourceId?: number, days: number = 30) => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke('analysis:comprehensive', sourceId, days)
+      return result || null
+    } catch (error) {
+      console.error('Failed to get comprehensive analysis:', error)
+      return null
+    }
+  }
+
+  // ============================================================================
+  // Data Export
+  // ============================================================================
+
+  interface ExportOptions {
+    format?: 'json' | 'csv'
+    sourceId?: number
+    startDate?: string
+    endDate?: string
+    includeFiltered?: boolean
+    includeMetadata?: boolean
+  }
+
+  // 导出采集数据
+  const exportCollectedItems = async (options: ExportOptions = {}) => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke('export:collected-items', {
+        format: options.format || 'json',
+        sourceId: options.sourceId,
+        startDate: options.startDate,
+        endDate: options.endDate,
+        includeFiltered: options.includeFiltered,
+        includeMetadata: options.includeMetadata
+      })
+      return result
+    } catch (error) {
+      console.error('Failed to export collected items:', error)
+      return { success: false, error }
+    }
+  }
+
+  // 导出采集历史
+  const exportCollectionHistory = async (options: ExportOptions = {}) => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke('export:collection-history', {
+        format: options.format || 'json',
+        sourceId: options.sourceId,
+        startDate: options.startDate,
+        endDate: options.endDate
+      })
+      return result
+    } catch (error) {
+      console.error('Failed to export collection history:', error)
+      return { success: false, error }
+    }
+  }
+
+  // 导出分析结果
+  const exportAnalysisResults = async (
+    analysisType: 'keyword-frequency' | 'temporal-patterns' | 'trends' | 'anomalies',
+    data: any,
+    options: ExportOptions = {}
+  ) => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke('export:analysis-results', analysisType, data, {
+        format: options.format || 'json',
+        includeMetadata: options.includeMetadata
+      })
+      return result
+    } catch (error) {
+      console.error('Failed to export analysis results:', error)
+      return { success: false, error }
+    }
+  }
+
+  // 导出统计数据
+  const exportStatistics = async (options: ExportOptions = {}) => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke('export:statistics', {
+        format: options.format || 'json',
+        includeMetadata: options.includeMetadata
+      })
+      return result
+    } catch (error) {
+      console.error('Failed to export statistics:', error)
+      return { success: false, error }
+    }
+  }
+
+  // 获取已导出文件列表
+  const getExportedFiles = async () => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke('export:list-files')
+      return result || []
+    } catch (error) {
+      console.error('Failed to list exported files:', error)
+      return []
+    }
+  }
+
+  // 删除导出文件
+  const deleteExportedFile = async (filePath: string) => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke('export:delete-file', filePath)
+      return result
+    } catch (error) {
+      console.error('Failed to delete exported file:', error)
+      return false
+    }
+  }
+
+  // 获取导出目录
+  const getExportDirectory = async () => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke('export:get-directory')
+      return result || ''
+    } catch (error) {
+      console.error('Failed to get export directory:', error)
+      return ''
+    }
   }
 
   // 获取统计数据
@@ -505,5 +852,17 @@ export function useCollection() {
     createSchedule,
     toggleSchedule,
     deleteSchedule,
+    getKeywordFrequency,
+    getTemporalPatterns,
+    getTrends,
+    getAnomalies,
+    getComprehensiveAnalysis,
+    exportCollectedItems,
+    exportCollectionHistory,
+    exportAnalysisResults,
+    exportStatistics,
+    getExportedFiles,
+    deleteExportedFile,
+    getExportDirectory,
   }
 }

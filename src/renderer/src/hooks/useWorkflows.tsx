@@ -25,78 +25,29 @@ export function useWorkflows() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // 模拟获取数据
+    // 获取工作流执行数据
     const fetchWorkflows = async () => {
       setLoading(true)
       try {
-        // TODO: 实现真实的API调用
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // 调用真实的API
+        const workflowExecutions = await window.aiTrendPublish.workflowExecutions.list(50, undefined)
+        setWorkflows(workflowExecutions || [])
 
-        const mockWorkflows: WorkflowExecution[] = [
-          {
-            id: '1',
-            name: '每日新闻聚合',
-            status: 'running',
-            type: '采集 → 总结 → 发布',
-            progress: 75,
-            startedAt: '2024-12-01 14:00:00',
-          },
-          {
-            id: '2',
-            name: 'AI技术热点追踪',
-            status: 'completed',
-            type: '采集 → 总结',
-            progress: 100,
-            startedAt: '2024-12-01 13:00:00',
-            completedAt: '2024-12-01 13:05:00',
-          },
-          {
-            id: '3',
-            name: '行业报告生成',
-            status: 'failed',
-            type: '采集 → 总结',
-            progress: 30,
-            startedAt: '2024-12-01 12:00:00',
-          },
-          {
-            id: '4',
-            name: '社交媒体摘要',
-            status: 'pending',
-            type: '采集',
-            progress: 0,
-            startedAt: '2024-12-01 11:00:00',
-          },
-        ]
-
-        const mockStages: WorkflowStage[] = [
-          {
-            id: '1',
-            executionId: '1',
-            stageName: '数据采集',
-            status: 'completed',
-            startedAt: '2024-12-01 14:00:00',
-            completedAt: '2024-12-01 14:02:00',
-          },
-          {
-            id: '2',
-            executionId: '1',
-            stageName: 'AI总结',
-            status: 'running',
-            startedAt: '2024-12-01 14:02:00',
-          },
-          {
-            id: '3',
-            executionId: '1',
-            stageName: '发布',
-            status: 'pending',
-            startedAt: '',
-          },
-        ]
-
-        setWorkflows(mockWorkflows)
-        setStages(mockStages)
+        // 获取所有工作流阶段
+        if (workflowExecutions && workflowExecutions.length > 0) {
+          const allStages: WorkflowStage[] = []
+          for (const execution of workflowExecutions) {
+            const stagesData = await window.aiTrendPublish.workflowStages.list(execution.id)
+            if (stagesData) {
+              allStages.push(...stagesData)
+            }
+          }
+          setStages(allStages)
+        }
       } catch (error) {
         console.error('Failed to fetch workflows:', error)
+        setWorkflows([])
+        setStages([])
       } finally {
         setLoading(false)
       }
@@ -110,13 +61,28 @@ export function useWorkflows() {
   }, [])
 
   const createWorkflow = async (data: any) => {
-    // TODO: 实现创建工作流
-    console.log('Create workflow:', data)
+    try {
+      const result = await window.aiTrendPublish.workflowExecutions.create(data)
+      return result
+    } catch (error) {
+      console.error('Failed to create workflow:', error)
+      throw error
+    }
   }
 
   const executeWorkflow = async (id: string) => {
-    // TODO: 实现执行工作流
-    console.log('Execute workflow:', id)
+    try {
+      // 更新工作流状态为运行中
+      await window.aiTrendPublish.workflowExecutions.update(parseInt(id), { status: 'running', startedAt: new Date().toISOString() })
+      // 执行工作流
+      const result = await window.aiTrendPublish.workflows.execute('manual', { sources: [id] })
+      return result
+    } catch (error) {
+      console.error('Failed to execute workflow:', error)
+      // 更新状态为失败
+      await window.aiTrendPublish.workflowExecutions.update(parseInt(id), { status: 'failed' })
+      throw error
+    }
   }
 
   return {
