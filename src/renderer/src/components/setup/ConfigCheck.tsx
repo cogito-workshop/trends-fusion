@@ -10,7 +10,7 @@ export default function ConfigCheck({ children }: { children: React.ReactNode })
 
     // Listen for setup completion event
     const handleSetupComplete = () => {
-      console.log('Setup complete event received, rechecking configuration...');
+      // Setup complete, rechecking configuration...
       setIsLoading(true);
       checkConfiguration();
     };

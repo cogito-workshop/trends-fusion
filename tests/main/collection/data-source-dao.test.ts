@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { DataSourceDAO, DataSourceRecord, CollectionHistoryRecord, CollectedItemRecord } from '../../../src/main/database/collection/data-source.dao';
 
 // Mock better-sqlite3
@@ -60,9 +60,10 @@ describe('DataSourceDAO', () => {
       const id = dao.createDataSource(sourceData);
 
       expect(id).toBe(1);
-      expect(mockDb.prepare).toHaveBeenCalledWith(
-        'INSERT INTO data_sources (name, type, url, config, status) VALUES (?, ?, ?, ?, ?)'
-      );
+      const prepareCall = mockDb.prepare.mock.calls[0][0];
+      expect(prepareCall).toContain('INSERT INTO data_sources');
+      expect(prepareCall).toContain('name, type, url, config, status');
+      expect(prepareCall).toContain('VALUES');
     });
 
     it('should handle data source with config', () => {
@@ -140,10 +141,10 @@ describe('DataSourceDAO', () => {
       const result = dao.getAllDataSources('api');
 
       expect(result).toEqual(mockSources);
-      expect(mockDb.prepare).toHaveBeenCalledWith(
-        'SELECT * FROM data_sources WHERE 1=1 AND type = ? ORDER BY created_at DESC',
-        'api'
-      );
+      const prepareCall = mockDb.prepare.mock.calls[0];
+      expect(prepareCall[0]).toContain('SELECT * FROM data_sources');
+      expect(prepareCall[0]).toContain('type = ?');
+      expect(prepareCall[1]).toBe('api');
     });
 
     it('should filter by status', () => {

@@ -2,10 +2,10 @@
 // Configuration Service for Electron App
 // ============================================================================
 
-import { logger } from '../utils/logger.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import dotenv from 'dotenv';
+import { app } from 'electron';
 
 export interface ConfigItem {
   key: string;
@@ -45,32 +45,18 @@ export class ConfigService {
   private envCache: Map<string, string> = new Map();
 
   private constructor() {
-    // Use userData directory for better reliability
-    this.initializePathSync();
-    this.loadEnvFile();
+    try {
+      this.initializePathSync();
+      this.loadEnvFile().catch((error) => {
+        console.error('Failed to load environment file:', error);
+      });
+    } catch (error) {
+      console.error('ConfigService initialization error:', error);
+    }
   }
 
   private initializePathSync(): void {
-    try {
-      // Try to use app.getPath in synchronous way
-      const { app } = require('electron');
-      const userDataPath = app.getPath('userData');
-      this.configPath = path.join(userDataPath, '.env');
-      logger.info({
-        msg: 'Using userData directory for configuration',
-        path: this.configPath,
-        userDataPath
-      });
-    } catch (error) {
-      // Fallback to app directory with debug info
-      this.configPath = path.join(process.cwd(), '.env');
-      logger.warn({
-        msg: 'Falling back to process.cwd() for configuration',
-        path: this.configPath,
-        processCwd: process.cwd(),
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
+    this.configPath = path.join(app.getPath('userData'), '.env');
   }
 
   static getInstance(): ConfigService {
@@ -91,14 +77,12 @@ export class ConfigService {
         }
       });
 
-      logger.info({
-        msg: 'Configuration file loaded',
+      console.info('Configuration file loaded', {
         path: this.configPath,
         items: this.envCache.size
       });
     } catch (error) {
-      logger.warn({
-        msg: 'Configuration file not found, using default values',
+      console.warn('Configuration file not found, using default values', {
         path: this.configPath
       });
     }
@@ -117,14 +101,12 @@ export class ConfigService {
         }
       });
 
-      logger.info({
-        msg: 'Configuration file reloaded',
+      console.info('Configuration file reloaded', {
         path: this.configPath,
         items: this.envCache.size
       });
     } catch (error) {
-      logger.warn({
-        msg: 'Failed to reload configuration file, using cached values',
+      console.warn('Failed to reload configuration file, using cached values', {
         path: this.configPath
       });
     }
@@ -352,8 +334,7 @@ export class ConfigService {
   }
 
   async setValue(key: string, value: string): Promise<void> {
-    logger.info({
-      msg: 'Setting config value',
+    console.info('Setting config value', {
       key,
       value: value ? '[REDACTED]' : '[EMPTY]',
       cacheSize: this.envCache.size
@@ -362,8 +343,7 @@ export class ConfigService {
     this.envCache.set(key, value);
     await this.saveToFile();
 
-    logger.info({
-      msg: 'Config value set successfully',
+    console.info('Config value set successfully', {
       key,
       cacheSize: this.envCache.size
     });
@@ -391,14 +371,12 @@ export class ConfigService {
 
       await fs.writeFile(this.configPath, content, 'utf-8');
 
-      logger.info({
-        msg: 'Configuration saved to file',
+      console.info('Configuration saved to file', {
         path: this.configPath,
         items: keys.length
       });
     } catch (error) {
-      logger.error({
-        msg: 'Failed to save configuration',
+      console.error('Failed to save configuration', {
         error: error instanceof Error ? error.message : String(error)
       });
       throw error;
@@ -409,8 +387,7 @@ export class ConfigService {
     // Reload from file to get latest configuration
     await this.reloadEnvFile();
     const report = await this.getConfigStatus();
-    logger.info({
-      msg: 'Configuration status check',
+    console.info('Configuration status check', {
       configuredItems: report.configuredItems,
       totalItems: report.totalItems,
       completeness: report.completeness
