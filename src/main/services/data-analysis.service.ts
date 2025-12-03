@@ -584,4 +584,4 @@ export class DataAnalysisService {
   }
 }
 
-export const dataAnalysisService = DataAnalysisService.getInstance();
+const dataAnalysisService = DataAnalysisService.getInstance();

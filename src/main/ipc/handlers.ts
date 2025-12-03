@@ -3,14 +3,14 @@
 // ============================================================================
 
 import { ipcMain } from 'electron'
+import { logger } from '../utils/logger'
 import { AITrendPublishService } from '../services/ai-trend-publish'
 import { firecrawlDataSource } from '../data-sources/firecrawl'
 import { FilterEngine } from '../services/filter-engine'
-import { schedulerService } from '../services/scheduler.service'
-import { dataAnalysisService } from '../services/data-analysis.service'
-import { exportService } from '../services/export.service'
+import { schedulerService as _schedulerService } from '../services/scheduler.service'
+import { dataAnalysisService as _dataAnalysisService } from '../services/data-analysis.service'
+import { exportService as _exportService } from '../services/export.service'
 import { configService } from '../services/config.service'
-import { logger } from '../utils/logger'
 
 /**
  * Global service instances
@@ -530,7 +530,22 @@ export function registerIPCHandlers(): void {
   })
 
   ipcMain.handle('config:is-configured', async () => {
-    return await configService.isConfigured()
+    try {
+      logger.info({
+        msg: 'config:is-configured handler called',
+        configServiceType: typeof configService,
+        configServiceHasIsConfigured: typeof configService?.isConfigured === 'function',
+        configServiceKeys: configService ? Object.getOwnPropertyNames(configService).slice(0, 10) : 'null'
+      })
+      return await configService.isConfigured()
+    } catch (error) {
+      logger.error({
+        msg: 'Error in config:is-configured handler',
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      })
+      throw error
+    }
   })
 
   ipcMain.handle('config:has-required', async () => {

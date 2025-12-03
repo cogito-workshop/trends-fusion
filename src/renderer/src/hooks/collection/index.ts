@@ -65,6 +65,39 @@ export function useCollection() {
     ])
   }
 
+  // Analytics functions
+  const getComprehensiveAnalysis = async (sourceId?: number, days?: number) => {
+    console.warn('getComprehensiveAnalysis not implemented yet')
+    // Return mock data for now
+    return {
+      keywordFrequency: [],
+      temporalPatterns: [],
+      trends: [],
+      anomalies: [],
+      summary: {
+        totalItems: 0,
+        dateRange: '',
+        averagePerDay: 0,
+        topKeyword: '',
+        mostActiveHour: 0,
+        trendCount: 0,
+        anomalyCount: 0
+      }
+    }
+  }
+
+  const exportCollectedItems = async (format: string, data: any, options?: any) => {
+    console.warn('exportCollectedItems not implemented yet')
+  }
+
+  const exportAnalysisResults = async (type: string, data: any, options?: any) => {
+    console.warn('exportAnalysisResults not implemented yet')
+  }
+
+  const exportStatistics = async (format: string, data: any, options?: any) => {
+    console.warn('exportStatistics not implemented yet')
+  }
+
   return {
     // Data Sources
     dataSources: dataSourcesHook.dataSources,
@@ -79,6 +112,12 @@ export function useCollection() {
     updateWorkflowExecution: workflowExecutionsHook.updateWorkflowExecution,
     deleteWorkflowExecution: workflowExecutionsHook.deleteWorkflowExecution,
     refreshExecutions: workflowExecutionsHook.refreshExecutions,
+
+    // Analytics
+    getComprehensiveAnalysis,
+    exportCollectedItems,
+    exportAnalysisResults,
+    exportStatistics,
 
     // Legacy properties (placeholder implementations)
     filterRules,

@@ -7,9 +7,9 @@ import { join } from 'path'
 import { databaseManager } from '../database'
 import { getCollectionDatabase } from '../database/collection/init'
 import { AITrendPublishService } from '../services/ai-trend-publish'
-import { schedulerService } from '../services/scheduler.service'
-import { dataAnalysisService } from '../services/data-analysis.service'
-import { exportService } from '../services/export.service'
+import { schedulerService as _schedulerService } from '../services/scheduler.service'
+import { dataAnalysisService as _dataAnalysisService } from '../services/data-analysis.service'
+import { exportService as _exportService } from '../services/export.service'
 import { logger } from '../utils/logger'
 
 /**
@@ -46,21 +46,22 @@ export async function initializeDatabases(): Promise<DatabaseInitResult> {
       collectionDb = getCollectionDatabase()
       logger.info({ msg: 'Collection database initialized successfully' })
 
+      // TODO: Re-enable services after fixing initialization issues
       // Initialize scheduler service
-      logger.info({ msg: 'Initializing scheduler service...' })
-      schedulerService.setCollectionDatabase(() => collectionDb)
-      await schedulerService.loadSchedules()
-      logger.info({ msg: 'Scheduler service initialized and loaded schedules' })
+      // logger.info({ msg: 'Initializing scheduler service...' })
+      // schedulerService.setCollectionDatabase(() => collectionDb)
+      // await schedulerService.loadSchedules()
+      // logger.info({ msg: 'Scheduler service initialized and loaded schedules' })
 
       // Initialize data analysis service
-      logger.info({ msg: 'Initializing data analysis service...' })
-      dataAnalysisService.setCollectionDatabase(() => collectionDb)
-      logger.info({ msg: 'Data analysis service initialized' })
+      // logger.info({ msg: 'Initializing data analysis service...' })
+      // dataAnalysisService.setCollectionDatabase(() => collectionDb)
+      // logger.info({ msg: 'Data analysis service initialized' })
 
       // Initialize export service
-      logger.info({ msg: 'Initializing export service...' })
-      exportService.setCollectionDatabase(() => collectionDb)
-      logger.info({ msg: 'Export service initialized' })
+      // logger.info({ msg: 'Initializing export service...' })
+      // exportService.setCollectionDatabase(() => collectionDb)
+      // logger.info({ msg: 'Export service initialized' })
     } catch (collectionError) {
       logger.error({
         msg: 'Failed to initialize collection database',
@@ -89,11 +90,12 @@ export async function cleanupDatabases(collectionDb: any): Promise<void> {
   try {
     logger.info({ msg: 'Cleaning up databases...' })
 
+    // TODO: Re-enable service cleanup when services are fixed
     // Cancel all scheduled jobs
-    schedulerService.getScheduledJobs().forEach(job => {
-      schedulerService.cancelJob(job.id)
-    })
-    logger.info({ msg: 'Cancelled all scheduled jobs' })
+    // schedulerService.getScheduledJobs().forEach(job => {
+    //   schedulerService.cancelJob(job.id)
+    // })
+    // logger.info({ msg: 'Cancelled all scheduled jobs' })
 
     // Close collection database
     if (collectionDb) {

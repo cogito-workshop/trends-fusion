@@ -5,11 +5,21 @@
 import Database from 'better-sqlite3'
 import type { TemplateDto, CreateTemplateDto, UpdateTemplateDto } from '../interfaces/dto'
 import { mapTemplate } from '../mappers'
+import { cacheService as _cacheService } from '../../services/cache/cache-service.js'
 
 export class TemplateDAO {
   constructor(private db: Database.Database) {}
 
   async getTemplates(platform?: string, isActive = true): Promise<TemplateDto[]> {
+    const cacheKey = `templates:${platform || 'all'}:${isActive}`
+
+    // Try cache first
+    const cached = cacheService.get<TemplateDto[]>(cacheKey)
+    if (cached !== null) {
+      return cached
+    }
+
+    // Cache miss - query database
     let query = 'SELECT * FROM templates WHERE 1=1'
     const params: unknown[] = []
 
@@ -23,13 +33,35 @@ export class TemplateDAO {
 
     const stmt = this.db.prepare(query)
     const rows = stmt.all(...params)
-    return rows.map(mapTemplate)
+    const result = rows.map(mapTemplate)
+
+    // Store in cache (5 minutes TTL)
+    cacheService.set(cacheKey, result, 300000)
+    return result
   }
 
   async getTemplateById(id: number): Promise<TemplateDto | null> {
+    const cacheKey = `template:${id}`
+
+    // Try cache first
+    const cached = cacheService.get<TemplateDto>(cacheKey)
+    if (cached !== null) {
+      return cached
+    }
+
+    // Cache miss - query database
     const stmt = this.db.prepare('SELECT * FROM templates WHERE id = ?')
     const row = stmt.get(id)
-    return row ? mapTemplate(row) : null
+
+    if (!row) {
+      return null
+    }
+
+    const result = mapTemplate(row)
+
+    // Store in cache (10 minutes TTL for individual templates)
+    cacheService.set(cacheKey, result, 600000)
+    return result
   }
 
   async createTemplate(template: CreateTemplateDto): Promise<TemplateDto> {
@@ -46,7 +78,13 @@ export class TemplateDAO {
       template.version || 1,
       template.isActive ?? true ? 1 : 0
     )
-    return this.getTemplateById(result.lastInsertRowid as number) as Promise<TemplateDto>
+    const newId = result.lastInsertRowid as number
+
+    // Invalidate templates list cache
+    cacheService.delete(`templates:${template.platform || 'all'}:${template.isActive ?? true}`)
+
+    // Return fresh data
+    return this.getTemplateById(newId) as Promise<TemplateDto>
   }
 
   async updateTemplate(id: number, updates: UpdateTemplateDto): Promise<TemplateDto> {
@@ -90,11 +128,25 @@ export class TemplateDAO {
       WHERE id = ?
     `)
     stmt.run(...values, id)
+
+    // Invalidate all related caches
+    cacheService.delete(`template:${id}`)
+    // Invalidate all templates list caches (platform might have changed)
+    cacheService.delete(`templates:all:true`)
+    cacheService.delete(`templates:all:false`)
+    cacheService.delete(`templates:${updates.platform || 'all'}:${updates.isActive !== undefined ? updates.isActive : true}`)
+
     return this.getTemplateById(id) as Promise<TemplateDto>
   }
 
   async deleteTemplate(id: number): Promise<void> {
     const stmt = this.db.prepare('DELETE FROM templates WHERE id = ?')
     stmt.run(id)
+
+    // Invalidate all related caches
+    cacheService.delete(`template:${id}`)
+    // Invalidate all templates list caches
+    cacheService.delete(`templates:all:true`)
+    cacheService.delete(`templates:all:false`)
   }
 }

@@ -48,24 +48,40 @@ export class SQLiteService implements DatabaseService {
   public readonly workflowExecutionDAO: WorkflowExecutionDAO
 
   constructor(dbPath?: string) {
-    this.dbPath = dbPath || process.env.SQLITE_PATH || './data/trends-fusion.db'
-    this.db = new Database(this.dbPath)
-    this.db.pragma('journal_mode = WAL')
-    this.initSchema()
+    try {
+      this.dbPath = dbPath || process.env.SQLITE_PATH || './data/trends-fusion.db'
+      this.db = new Database(this.dbPath)
 
-    // Initialize DAOs
-    this.configDAO = new ConfigDAO(this.db)
-    this.templateCategoryDAO = new TemplateCategoryDAO(this.db)
-    this.templateDAO = new TemplateDAO(this.db)
-    this.dataSourceDAO = new DataSourceDAO(this.db)
-    this.workflowExecutionDAO = new WorkflowExecutionDAO(this.db)
+      // Apply performance PRAGMA settings
+      this.db.pragma('journal_mode = WAL')
+      this.db.pragma('synchronous = NORMAL')
+      this.db.pragma('cache_size = 10000')
+      this.db.pragma('foreign_keys = ON')
+      this.db.pragma('temp_store = MEMORY')
+      this.db.pragma('page_size = 4096')
+
+      this.initSchema()
+
+      // Initialize DAOs
+      this.configDAO = new ConfigDAO(this.db)
+      this.templateCategoryDAO = new TemplateCategoryDAO(this.db)
+      this.templateDAO = new TemplateDAO(this.db)
+      this.dataSourceDAO = new DataSourceDAO(this.db)
+      this.workflowExecutionDAO = new WorkflowExecutionDAO(this.db)
+
+      // Apply query optimizations
+      this.applyOptimizations()
+    } catch (error) {
+      console.error('SQLiteService constructor error:', error)
+      throw error
+    }
   }
 
   private initSchema(): void {
     const schema = `
 -- ============================================================================
-// SQLite Database Schema for trends-fusion (Offline Mode)
-// Based on ai-trend-publish MySQL schema
+-- SQLite Database Schema for trends-fusion (Offline Mode)
+-- Based on ai-trend-publish MySQL schema
 -- ============================================================================
 
 -- Config table for key-value storage
@@ -235,6 +251,69 @@ CREATE INDEX IF NOT EXISTS idx_workflow_logs_execution ON workflow_logs(executio
 
     this.db.exec(schema)
     logger.info({ msg: 'SQLite database schema initialized' })
+  }
+
+  private applyOptimizations(): void {
+    const optimizations = `
+-- ============================================================================
+-- Additional Indexes for Query Optimization
+-- ============================================================================
+
+-- Composite index for common template queries (platform + is_active + created_at)
+CREATE INDEX IF NOT EXISTS idx_templates_platform_active_created
+ON templates(platform, is_active, created_at DESC);
+
+-- Index for template name lookups
+CREATE INDEX IF NOT EXISTS idx_templates_name
+ON templates(name);
+
+-- Index for data source name lookups
+CREATE INDEX IF NOT EXISTS idx_data_sources_name
+ON data_sources(name);
+
+-- Composite index for data source queries (type + is_active)
+CREATE INDEX IF NOT EXISTS idx_data_sources_type_active
+ON data_sources(type, is_active);
+
+-- Index for template version history lookups
+CREATE INDEX IF NOT EXISTS idx_template_versions_template
+ON template_versions(template_id, version DESC);
+
+-- Index for vector items source lookups
+CREATE INDEX IF NOT EXISTS idx_vector_items_source_id
+ON vector_items(source_id);
+
+-- Index for config key lookups
+CREATE INDEX IF NOT EXISTS idx_config_key
+ON config(key);
+
+-- Index for updated_at columns for better sorting
+CREATE INDEX IF NOT EXISTS idx_templates_updated
+ON templates(updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_data_sources_updated
+ON data_sources(updated_at DESC);
+
+-- ============================================================================
+-- Update query planner statistics
+-- ============================================================================
+
+ANALYZE config;
+ANALYZE template_categories;
+ANALYZE templates;
+ANALYZE template_versions;
+ANALYZE data_sources;
+ANALYZE vector_items;
+ANALYZE workflow_executions;
+ANALYZE workflow_stages;
+ANALYZE collected_items;
+ANALYZE analysis_results;
+ANALYZE published_content;
+ANALYZE workflow_logs;
+`
+
+    this.db.exec(optimizations)
+    logger.info({ msg: 'Database query optimizations applied' })
   }
 
   // ============================================================================

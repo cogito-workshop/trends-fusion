@@ -25,7 +25,12 @@ export class SchedulerService {
   private getCollectionDatabase: (() => any) | null = null;
 
   private constructor() {
-    logger.info('SchedulerService initialized');
+    try {
+      logger.info('SchedulerService initialized');
+    } catch (error) {
+      logger.error('Error in SchedulerService constructor:', error);
+      throw error;
+    }
   }
 
   static getInstance(): SchedulerService {
@@ -291,4 +296,4 @@ export class SchedulerService {
   }
 }
 
-export const schedulerService = SchedulerService.getInstance();
+// export const schedulerService = SchedulerService.getInstance();

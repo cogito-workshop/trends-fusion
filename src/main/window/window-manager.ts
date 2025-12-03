@@ -5,8 +5,10 @@
 import { BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
-import icon from '../../../resources/icon.png?asset'
+// import icon from '../../../resources/icon.png?asset'
 import { logger } from '../utils/logger'
+
+// Temporary: Disabled icon import to debug startup issue
 
 /**
  * Window configuration interface
@@ -49,8 +51,8 @@ export class WindowManager {
   createWindow(): void {
     // Platform-specific icon configuration
     const config: WindowConfig = {
-      ...DEFAULT_CONFIG,
-      ...(process.platform === 'linux' ? { icon } : {})
+      ...DEFAULT_CONFIG
+      // ...(process.platform === 'linux' ? { icon } : {})
     }
 
     // Create the browser window

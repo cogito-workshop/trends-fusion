@@ -19,6 +19,7 @@ export default defineConfig({
         '**/*.d.ts',
         '**/*.config.*',
         '**/electron.vite.config.*',
+        '.minimax/',
       ],
       thresholds: {
         global: {
@@ -29,6 +30,8 @@ export default defineConfig({
         },
       },
     },
+    include: ['tests/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['**/node_modules/**', '**/dist/**', '.minimax/**'],
   },
   resolve: {
     alias: {

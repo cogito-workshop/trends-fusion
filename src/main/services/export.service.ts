@@ -437,4 +437,4 @@ export class ExportService {
   }
 }
 
-export const exportService = ExportService.getInstance();
+const exportService = ExportService.getInstance();
